@@ -29,7 +29,8 @@ import java.nio.file.Path;
                 MovePstCommand.class,
                 StatsCommand.class,
                 ScanFileCommand.class,
-                ScanPstCommand.class
+                ScanPstCommand.class,
+                EncodingProbeCommand.class
         }
 )
 public class ArchiveCommand {
