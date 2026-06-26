@@ -116,5 +116,7 @@ class EncodingProbeUtilityTest {
 
         assertTrue(commandLine.getSubcommands().containsKey("encoding-probe"));
         assertDoesNotThrow(() -> commandLine.parseArgs("encoding-probe", "sample.pst", "--limit", "10"));
+        assertDoesNotThrow(() -> commandLine.parseArgs("encoding-probe", "sample.pst", "--limit", "10",
+                "--output", "probe-report.txt"));
     }
 }

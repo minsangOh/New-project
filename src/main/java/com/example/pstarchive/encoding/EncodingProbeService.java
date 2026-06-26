@@ -9,6 +9,7 @@ import com.pff.PSTObject;
 
 import java.io.IOException;
 import java.io.PrintStream;
+import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.util.Optional;
 import java.util.Vector;
@@ -31,6 +32,7 @@ public class EncodingProbeService {
         out.println("ENCODING PROBE START");
         out.println("file: " + pstPath.toAbsolutePath().normalize());
         out.println("limit: " + limit);
+        printRuntimeEncodingDiagnostics(out);
         out.println();
 
         ProbeState state = new ProbeState(limit);
@@ -57,6 +59,25 @@ public class EncodingProbeService {
         out.println("messagesProbed: " + state.messagesProbed);
         out.println("fatalErrors: " + state.fatalErrors);
         return state.fatalErrors == 0 ? 0 : 1;
+    }
+
+    private void printRuntimeEncodingDiagnostics(PrintStream out) {
+        out.println("javaDefaultCharset: " + Charset.defaultCharset());
+        out.println("native.encoding: " + property("native.encoding"));
+        out.println("stdout.encoding: " + property("stdout.encoding"));
+        out.println("sun.stdout.encoding: " + property("sun.stdout.encoding"));
+        out.println("consoleCharset: " + consoleCharset());
+    }
+
+    private String property(String name) {
+        return System.getProperty(name, "<none>");
+    }
+
+    private String consoleCharset() {
+        if (System.console() == null) {
+            return "<none>";
+        }
+        return System.console().charset().name();
     }
 
     private void scanFolder(PSTFolder folder, String folderPath, ProbeState state, PrintStream out) {
