@@ -27,8 +27,9 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "8.10.2"
 
       - name: Run tests
-        run: gradle test
+        run: .\gradlew.bat test
+
+      - name: Smoke test CLI init
+        run: .\gradlew.bat run --args="--data-dir $env:RUNNER_TEMP\PstArchiveSearch init"
