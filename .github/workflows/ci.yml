@@ -39,3 +39,9 @@ jobs:
 
       - name: Smoke test encoding-probe help
         run: .\gradlew.bat run --args="encoding-probe --help"
+
+      - name: Smoke test index-file help
+        run: .\gradlew.bat run --args="index-file --help"
+
+      - name: Smoke test index-pst help
+        run: .\gradlew.bat run --args="index-pst --help"

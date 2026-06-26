@@ -417,3 +417,79 @@ hangulRatioAfter: ...
 - subject/folder/body 중 일부라도 `OK` 또는 개선된 `DEGRADED` 결과를 보임
 - raw byte 접근 가능 여부가 필드별로 확인됨
 - `UNRECOVERABLE` 필드가 많다면 java-libpst 0.9.4 또는 source build 비교 필요
+
+## Phase 3A SQLite Shard Store POC
+
+Phase 3A의 목적은 검색 기능을 구현하기 전에, java-libpst로 추출한 PST 폴더와 메일 원문을 per-PST SQLite shard DB에 안정적으로 저장할 수 있는지 검증하는 것입니다.
+
+아직 구현하지 않은 것:
+
+- Lucene
+- SQLite FTS5
+- 검색 명령
+- 원문 재검증 검색
+- 첨부파일 본문 검색
+- GUI
+- AI Q&A
+
+직접 PST 파일을 SQLite로 저장:
+
+```powershell
+.\gradlew.bat run --args="index-file D:\MailArchive\oms39.pst --out D:\MailArchive\oms39-store.sqlite --limit 1000 --replace"
+```
+
+catalog에 등록된 PST를 shard store에 저장:
+
+```powershell
+.\gradlew.bat run --args="--data-dir D:\PstArchiveSearch index-pst <pst_id> --limit 1000 --replace"
+```
+
+옵션:
+
+- `--limit`: 저장할 메일 수 상한입니다. 대형 PST 검증 시 처음에는 `10`, `100`, `1000` 순서로 늘리는 것을 권장합니다.
+- `--replace`: 기존 `folders`, `messages`, `index_errors` 데이터를 지우고 다시 저장합니다. `index_runs` 기록은 유지됩니다.
+- `--out`: `index-file` 전용 SQLite store 경로입니다.
+
+`index-pst`의 store 위치:
+
+```text
+<data-dir>/shards/<pst_id>/store.sqlite
+```
+
+생성되는 SQLite 테이블:
+
+- `folders`: PST 내부 폴더 경로와 폴더 메타데이터
+- `messages`: 메일 메타데이터, subject, sender, recipients, cc, plain body, HTML body, HTML text
+- `index_errors`: 필드/메일 단위 추출 오류
+- `index_runs`: 인덱싱 실행 요약
+
+encoding status:
+
+- `OK`: 정상 또는 가장 좋은 후보로 복구됨
+- `DEGRADED`: 일부 깨짐 가능성이 있지만 저장 가능한 best text가 있음
+- `UNRECOVERABLE`: raw byte 복구가 어렵고 getter 문자열도 깨진 것으로 판단됨
+- `NULL`: 값 없음
+- `ERROR`: getter 또는 변환 중 예외 발생
+
+실제 PST 파일은 GitHub에 올리지 마세요. Integration test는 `PST_TEST_FILE` 환경변수가 있을 때만 실행됩니다.
+
+```powershell
+$env:PST_TEST_FILE="D:\MailArchive\oms39.pst"
+.\gradlew.bat test
+```
+
+성공 기준:
+
+- `INDEX SUMMARY`에서 `messagesSaved`가 `--limit` 또는 실제 메일 수만큼 증가
+- `fatalErrors`가 0
+- `store.sqlite`에 `folders`, `messages`, `index_runs` row가 생성
+- subject/body/body_html/body_html_text status가 함께 저장
+
+실패 시 확인할 것:
+
+- PST 파일 경로와 잠금 상태
+- `UNRECOVERABLE` 필드 비율
+- `index_errors` 테이블 내용
+- `encoding-probe --output` 보고서와 저장된 본문 비교
+
+다음 Phase 3B에서는 저장된 SQLite 원문을 기반으로 검색 후보 생성 구조를 추가합니다. Phase 3B에서도 검색 결과를 곧바로 확정하지 않고 원문 재검증을 유지해야 합니다.

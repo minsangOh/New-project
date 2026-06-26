@@ -113,7 +113,10 @@ public class BestEffortTextDecoder {
             if (before > 0.08 && best.brokenCharRatio() >= before) {
                 return "UNRECOVERABLE";
             }
-            return best.brokenCharRatio() <= before ? "DEGRADED" : "UNRECOVERABLE";
+            if (before > 0.08) {
+                return best.brokenCharRatio() < before ? "DEGRADED" : "UNRECOVERABLE";
+            }
+            return "OK";
         }
         if (best.brokenCharRatio() < before || best.hangulRatio() > KoreanTextQualityScorer.hangulRatio(getterText)) {
             return "OK";
