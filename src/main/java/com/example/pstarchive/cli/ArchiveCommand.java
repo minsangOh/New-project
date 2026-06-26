@@ -27,7 +27,9 @@ import java.nio.file.Path;
                 MarkStatusCommand.MarkCold.class,
                 VerifyCommand.class,
                 MovePstCommand.class,
-                StatsCommand.class
+                StatsCommand.class,
+                ScanFileCommand.class,
+                ScanPstCommand.class
         }
 )
 public class ArchiveCommand {

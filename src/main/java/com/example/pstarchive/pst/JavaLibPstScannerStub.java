@@ -4,8 +4,10 @@ import java.nio.file.Path;
 
 public class JavaLibPstScannerStub implements PstScanner {
     @Override
-    public PstScanSummary scan(Path pstPath) {
+    public PstScanSummary scan(Path pstPath, PstScanOptions options) {
         return new PstScanSummary(
+                0,
+                0,
                 0,
                 0,
                 0,

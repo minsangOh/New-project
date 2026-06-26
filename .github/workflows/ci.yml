@@ -33,3 +33,9 @@ jobs:
 
       - name: Smoke test CLI init
         run: .\gradlew.bat run --args="--data-dir $env:RUNNER_TEMP\PstArchiveSearch init"
+
+      - name: Smoke test scan-file help
+        run: .\gradlew.bat run --args="scan-file --help"
+
+      - name: Smoke test scan-pst help
+        run: .\gradlew.bat run --args="scan-pst --help"
