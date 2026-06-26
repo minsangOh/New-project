@@ -1,0 +1,19 @@
+[project]
+name = "pst-mail-search"
+version = "0.1.0"
+description = "Local Outlook PST mail search MVP with source verification"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+pst = [
+  "pypff",
+]
+
+[project.scripts]
+pst-search = "pst_mail_search.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
