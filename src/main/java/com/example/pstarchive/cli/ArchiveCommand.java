@@ -32,7 +32,11 @@ import java.nio.file.Path;
                 ScanPstCommand.class,
                 EncodingProbeCommand.class,
                 IndexFileCommand.class,
-                IndexPstCommand.class
+                IndexPstCommand.class,
+                InspectStoreCommand.class,
+                SampleMessagesCommand.class,
+                ShowMessageCommand.class,
+                QualityReportCommand.class
         }
 )
 public class ArchiveCommand {

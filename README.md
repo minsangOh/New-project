@@ -493,3 +493,59 @@ $env:PST_TEST_FILE="D:\MailArchive\oms39.pst"
 - `encoding-probe --output` 보고서와 저장된 본문 비교
 
 다음 Phase 3B에서는 저장된 SQLite 원문을 기반으로 검색 후보 생성 구조를 추가합니다. Phase 3B에서도 검색 결과를 곧바로 확정하지 않고 원문 재검증을 유지해야 합니다.
+
+## Phase 3A-Verify SQLite Store Inspection
+
+Phase 3A-Verify adds read-only tools for checking whether a generated `store.sqlite` is healthy enough to use as the basis for Phase 3B search candidate work. These commands do not implement Lucene, FTS, search, or source-text re-verification search.
+
+Inspect the whole store:
+
+```powershell
+.\gradlew.bat run --args="inspect-store D:\MailArchive\oms39-store.sqlite"
+```
+
+Print stored message samples with short previews only:
+
+```powershell
+.\gradlew.bat run --args="sample-messages D:\MailArchive\oms39-store.sqlite --limit 10"
+```
+
+Show one message by `messages.id`:
+
+```powershell
+.\gradlew.bat run --args="show-message D:\MailArchive\oms39-store.sqlite --id 123"
+```
+
+Evaluate readiness for Phase 3B:
+
+```powershell
+.\gradlew.bat run --args="quality-report D:\MailArchive\oms39-store.sqlite"
+```
+
+Use UTF-8 report files when console encoding is suspicious:
+
+```powershell
+.\gradlew.bat run --args="sample-messages D:\MailArchive\oms39-store.sqlite --limit 10 --output D:\MailArchive\sample-messages-report.txt"
+.\gradlew.bat run --args="show-message D:\MailArchive\oms39-store.sqlite --id 123 --output D:\MailArchive\message-123.txt"
+.\gradlew.bat run --args="quality-report D:\MailArchive\oms39-store.sqlite --output D:\MailArchive\quality-report.txt"
+```
+
+`inspect-store` reports table counts, latest index run, status distributions, null counts, average body lengths, and sent/received date ranges.
+
+`quality-report` returns one of:
+
+- `READY`: store looks healthy enough for Phase 3B candidate-search work.
+- `READY_WITH_WARNINGS`: Phase 3B can proceed, but degraded fields, null fields, or index_errors should be reviewed.
+- `NOT_READY`: blocking issues exist, such as no messages, no folders, fatal errors, very low body coverage, or too many unrecoverable fields.
+
+Phase 3B checklist:
+
+- `messages` row count is greater than 0.
+- `folders` row count is greater than 0.
+- latest `fatalErrors` is 0.
+- `UNRECOVERABLE` fields are not excessive.
+- subject exists for most messages.
+- at least one of `body_text` or `body_html_text` exists for most messages.
+- `index_errors` top issues have been reviewed.
+
+These inspection tools read only the SQLite store. They do not search mail content and do not replace the later source-text re-verification requirement.

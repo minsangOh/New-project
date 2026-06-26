@@ -1,4 +1,5 @@
 <configuration>
+    <statusListener class="ch.qos.logback.core.status.NopStatusListener" />
     <property name="LOCALAPPDATA" value="${LOCALAPPDATA:-.}" />
     <property name="LOG_DIR" value="${PST_ARCHIVE_LOG_DIR:-${LOCALAPPDATA}/PstArchiveSearch/logs}" />
 

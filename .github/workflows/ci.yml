@@ -45,3 +45,14 @@ jobs:
 
       - name: Smoke test index-pst help
         run: .\gradlew.bat run --args="index-pst --help"
+      - name: Smoke test inspect-store help
+        run: .\gradlew.bat run --args="inspect-store --help"
+
+      - name: Smoke test sample-messages help
+        run: .\gradlew.bat run --args="sample-messages --help"
+
+      - name: Smoke test show-message help
+        run: .\gradlew.bat run --args="show-message --help"
+
+      - name: Smoke test quality-report help
+        run: .\gradlew.bat run --args="quality-report --help"
