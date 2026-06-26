@@ -17,6 +17,13 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class EncodingProbeUtilityTest {
+    private static final String SAMSUNG = "\uC0BC\uC131\uC804\uC790";
+    private static final String WATER_PURIFIER = "\uC5BC\uC74C\uC815\uC218\uAE30";
+    private static final String TAPING = "\uD14C\uC774\uD551";
+    private static final String JOINT = "\uC870\uC778\uD2B8\uBD80";
+    private static final String WIRE_BREAK = "\uB2E8\uC120";
+    private static final String USER_MOJIBAKE_SAMPLE = "?\uC88E\uB8DE?\uC1FF\uB71D?\uC208\uC095";
+
     private final BestEffortTextDecoder decoder = new BestEffortTextDecoder();
 
     @Test
@@ -31,47 +38,56 @@ class EncodingProbeUtilityTest {
 
     @Test
     void decodesUtf8KoreanBytes() {
-        byte[] bytes = "삼성전자 얼음정수기".getBytes(StandardCharsets.UTF_8);
+        String expected = SAMSUNG + " " + WATER_PURIFIER;
+        byte[] bytes = expected.getBytes(StandardCharsets.UTF_8);
 
-        EncodingProbeResult result = decoder.probe("占쏙옙", bytes, "utf-8");
+        EncodingProbeResult result = decoder.probe(USER_MOJIBAKE_SAMPLE, bytes, "utf-8");
 
-        assertEquals("삼성전자 얼음정수기", result.decodedBestText());
+        assertEquals(expected, result.decodedBestText());
         assertEquals("OK", result.decodeStatus());
     }
 
     @Test
     void decodesMs949KoreanBytes() {
-        byte[] bytes = "테이핑 조인트부 단선".getBytes(Charset.forName("MS949"));
+        String expected = TAPING + " " + JOINT + " " + WIRE_BREAK;
+        byte[] bytes = expected.getBytes(Charset.forName("MS949"));
 
-        EncodingProbeResult result = decoder.probe("?좎룞", bytes, "ks_c_5601-1987");
+        EncodingProbeResult result = decoder.probe(USER_MOJIBAKE_SAMPLE, bytes, "ks_c_5601-1987");
 
-        assertEquals("테이핑 조인트부 단선", result.decodedBestText());
+        assertEquals(expected, result.decodedBestText());
         assertEquals("OK", result.decodeStatus());
     }
 
     @Test
     void decodesEucKrKoreanBytes() {
-        byte[] bytes = "삼성전자".getBytes(Charset.forName("EUC-KR"));
+        byte[] bytes = SAMSUNG.getBytes(Charset.forName("EUC-KR"));
 
         EncodingProbeResult result = decoder.probe("???", bytes, "EUC-KR");
 
-        assertEquals("삼성전자", result.decodedBestText());
+        assertEquals(SAMSUNG, result.decodedBestText());
         assertEquals("OK", result.decodeStatus());
     }
 
     @Test
     void detectsBrokenMojibakeRatio() {
-        double broken = KoreanTextQualityScorer.brokenCharRatio("?좎룞?쇿뜝?숈삕");
-        double normal = KoreanTextQualityScorer.brokenCharRatio("삼성전자 얼음정수기");
+        double broken = KoreanTextQualityScorer.brokenCharRatio(USER_MOJIBAKE_SAMPLE);
+        double normal = KoreanTextQualityScorer.brokenCharRatio(SAMSUNG + " " + WATER_PURIFIER);
 
+        assertTrue(broken > 0.50);
+        assertTrue(normal < 0.01);
         assertTrue(broken > normal);
+    }
+
+    @Test
+    void normalKoreanQuestionMarkIsNotTreatedAsBroken() {
+        assertTrue(KoreanTextQualityScorer.brokenCharRatio("\uC9C4\uC9DC?") < 0.01);
     }
 
     @Test
     void choosesCandidateWithLowerBrokenRatioAndKoreanText() {
         DecodedTextCandidate best = decoder.chooseBestDecodedText(List.of(
-                new DecodedTextCandidate("broken", "?좎룞?쇿뜝", 0.75, 0.40, true),
-                new DecodedTextCandidate("MS949", "삼성전자", 0.0, 1.0, true)
+                new DecodedTextCandidate("broken", USER_MOJIBAKE_SAMPLE, 0.75, 0.10, true),
+                new DecodedTextCandidate("MS949", SAMSUNG, 0.0, 1.0, true)
         ));
 
         assertNotNull(best);
@@ -89,7 +105,7 @@ class EncodingProbeUtilityTest {
 
     @Test
     void marksAlreadyBrokenStringWithoutRawBytesAsUnrecoverable() {
-        EncodingProbeResult result = decoder.probe("?좎룞?쇿뜝?숈삕", null, "ks_c_5601-1987");
+        EncodingProbeResult result = decoder.probe(USER_MOJIBAKE_SAMPLE, null, "ks_c_5601-1987");
 
         assertEquals("UNRECOVERABLE", result.decodeStatus());
     }
