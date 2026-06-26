@@ -17,7 +17,11 @@ import java.nio.file.Path;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 
-@Command(name = "scan-pst", description = "Open a catalog-registered PST and print a diagnostic folder/mail preview.")
+@Command(
+        name = "scan-pst",
+        mixinStandardHelpOptions = true,
+        description = "Open a catalog-registered PST and print a diagnostic folder/mail preview."
+)
 public class ScanPstCommand implements Callable<Integer> {
     @ParentCommand
     private ArchiveCommand archive;

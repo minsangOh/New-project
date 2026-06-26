@@ -10,7 +10,11 @@ import picocli.CommandLine.Parameters;
 import java.nio.file.Path;
 import java.util.concurrent.Callable;
 
-@Command(name = "scan-file", description = "Open a PST file directly and print a diagnostic folder/mail preview.")
+@Command(
+        name = "scan-file",
+        mixinStandardHelpOptions = true,
+        description = "Open a PST file directly and print a diagnostic folder/mail preview."
+)
 public class ScanFileCommand implements Callable<Integer> {
     @Parameters(index = "0", description = "PST file path.")
     private Path pstPath;
