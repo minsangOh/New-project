@@ -33,11 +33,15 @@ public final class KoreanTextQualityScorer {
         }
         int suspicious = 0;
         int visible = 0;
+        int questionMarks = 0;
         for (int i = 0; i < text.length(); ) {
             int codePoint = text.codePointAt(i);
             int charCount = Character.charCount(codePoint);
             if (!Character.isWhitespace(codePoint)) {
                 visible++;
+                if (codePoint == '?') {
+                    questionMarks++;
+                }
                 if (isBrokenReplacement(codePoint)
                         || isSuspiciousCodePoint(codePoint)
                         || isSuspiciousQuestionMark(text, i)) {
@@ -48,6 +52,9 @@ public final class KoreanTextQualityScorer {
         }
         if (visible == 0) {
             return 0.0;
+        }
+        if (questionMarks >= 2 && questionMarks / (double) visible >= 0.50) {
+            suspicious = Math.max(suspicious, questionMarks);
         }
         return suspicious / (double) visible;
     }
