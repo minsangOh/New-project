@@ -43,3 +43,14 @@ public final class CommandOutput {
             return 1;
         }
     }
+
+    private static String safeMessage(Exception e) {
+        String message = e.getMessage();
+        return message == null || message.isBlank() ? "no message" : message.replace("\r", " ").replace("\n", " ");
+    }
+
+    @FunctionalInterface
+    public interface OutputAction {
+        void write(PrintStream out) throws Exception;
+    }
+}

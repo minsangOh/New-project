@@ -19,3 +19,4 @@ PstArchiveSearch/
 # OS files
 Thumbs.db
 .DS_Store
+bin/

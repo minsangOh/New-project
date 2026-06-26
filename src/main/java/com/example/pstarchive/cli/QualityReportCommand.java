@@ -33,3 +33,4 @@ public class QualityReportCommand implements Callable<Integer> {
                 new InspectionFormatter(out).printQualityReport(new StoreQualityReporter().report(normalized))
         );
     }
+}

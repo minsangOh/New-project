@@ -43,3 +43,7 @@ public class ShowMessageCommand implements Callable<Integer> {
         if (detail.isEmpty()) {
             System.err.println("Message not found: " + messageId);
             return 2;
+        }
+        return CommandOutput.write(outputPath, out -> new InspectionFormatter(out).printMessage(detail.get()));
+    }
+}

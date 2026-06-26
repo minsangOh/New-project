@@ -33,3 +33,4 @@ public class InspectStoreCommand implements Callable<Integer> {
                 new InspectionFormatter(out).printInspection(new StoreInspector().inspect(normalized))
         );
     }
+}
