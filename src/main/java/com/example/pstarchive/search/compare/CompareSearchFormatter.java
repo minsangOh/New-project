@@ -23,8 +23,15 @@ public class CompareSearchFormatter {
         out.println("likeVerifiedMessages: " + report.likeVerifiedMessages());
         out.println("fts5VerifiedMessages: " + report.fts5VerifiedMessages());
         out.println("commonVerifiedMessages: " + report.commonVerifiedMessages());
+        out.println("likeDisplayedMessages: " + report.likeDisplayedMessages());
+        out.println("fts5DisplayedMessages: " + report.fts5DisplayedMessages());
+        out.println("commonDisplayedMessages: " + report.commonDisplayedMessages());
         out.println("likeOnlyVerifiedMessages: " + report.likeOnlyVerifiedMessages());
         out.println("fts5OnlyVerifiedMessages: " + report.fts5OnlyVerifiedMessages());
+        out.println("likeOnlyDisplayedMessages: " + report.likeOnlyDisplayedMessages());
+        out.println("fts5OnlyDisplayedMessages: " + report.fts5OnlyDisplayedMessages());
+        out.println("likeOnlyHiddenOnlyMessages: " + report.likeOnlyHiddenOnlyMessages());
+        out.println("fts5OnlyHiddenOnlyMessages: " + report.fts5OnlyHiddenOnlyMessages());
         if (report.hasFts5Error()) {
             out.println("fts5Error: " + report.fts5Error());
         }
@@ -53,6 +60,7 @@ public class CompareSearchFormatter {
             out.println("matchPolicies: " + list(message.matchPolicies()));
             out.println("visibleMatchCount: " + message.visibleMatchCount());
             out.println("hiddenBrokenMatches: " + message.hiddenBrokenMatches());
+            out.println("visibilityClass: " + message.visibilityClass());
             out.println("preview: " + value(message.preview()));
             out.println();
         }
@@ -62,10 +70,13 @@ public class CompareSearchFormatter {
         out.println("DIAGNOSIS HINT");
         if (report.hasFts5Error()) {
             out.println("FTS5 comparison failed. Build or verify the FTS5 index before comparing engines.");
-        } else if (report.likeOnlyVerifiedMessages() > 0) {
-            out.println("FTS5 missed verified messages. Keep LIKE as default. Review likeOnly fields before designing hybrid fallback.");
-        } else if (report.fts5OnlyVerifiedMessages() > 0) {
+        } else if (report.likeOnlyDisplayedMessages() > 0) {
+            out.println("FTS5 missed visible verified messages. Do not use FTS5 as default.");
+            out.println("Review LIKE-only visible fields before designing hybrid fallback.");
+        } else if (report.fts5OnlyDisplayedMessages() > 0) {
             out.println("FTS5 found verified messages not present in LIKE results. Review limits and ordering before changing policy.");
+        } else if (report.likeOnlyHiddenOnlyMessages() > 0 || report.fts5OnlyHiddenOnlyMessages() > 0) {
+            out.println("FTS5 differs only on hidden BROKEN matches under current display policy.");
         } else {
             out.println("LIKE and FTS5 verified message sets match for this query and limit.");
         }

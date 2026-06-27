@@ -6,7 +6,7 @@ Before starting future Codex work, read [`PROJECT_STATE.md`](PROJECT_STATE.md) f
 
 ## Current Status
 
-The repository is currently complete through **Phase 3C-5**.
+The repository is currently complete through **Phase 3C-6**.
 
 Completed phases:
 
@@ -23,6 +23,7 @@ Completed phases:
 - Phase 3C-3: `benchmark-search` for LIKE vs FTS5 comparison
 - Phase 3C-4: Default engine policy decision
 - Phase 3C-5: FTS5 missing candidate diagnostics
+- Phase 3C-6: compare diagnostics visible result refinement
 
 For detailed phase history, CLI behavior, known issues, and future boundaries, see [`PROJECT_STATE.md`](PROJECT_STATE.md).
 
@@ -133,7 +134,13 @@ Compare search engines:
 .\gradlew.bat run --args="compare-search-engines D:\MailArchive\oms39-store.sqlite DA96-01767C --limit 20 --output D:\MailArchive\compare-da96.txt"
 ```
 
-`compare-search-engines` is a diagnostic tool for finding verified messages that LIKE finds but FTS5 misses. It reports message IDs, matched fields, match policies, hidden BROKEN match counts, and short previews. It is meant to guide a future hybrid/fallback design; it does not implement fallback.
+`compare-search-engines` is a diagnostic tool for finding verified messages that LIKE finds but FTS5 misses. It reports message IDs, matched fields, match policies, hidden BROKEN match counts, `visibilityClass`, and short previews. It now separates visible/displayed differences from hidden-only BROKEN differences. It is meant to guide a future hybrid/fallback design; it does not implement fallback.
+
+Phase 3C-6 comparison notes:
+
+- `DA96-01767C`: visible LIKE-only subject misses were observed because LIKE matched `DA96-01767CD` as a substring while FTS5 missed it as a candidate.
+- Korean query `얼음정수기`: LIKE-only differences were hidden-only BROKEN matches under the default display policy.
+- Future hybrid design should prioritize visible LIKE-only misses, not hidden-only BROKEN differences.
 
 Benchmark:
 
@@ -146,12 +153,12 @@ Benchmark:
 
 ## Next Phase
 
-Next planned work is **Phase 3C-6: hybrid candidate search design**.
+Next planned work is **Phase 3C-7: visible-miss-based hybrid candidate search design**.
 
 Goal:
 
-- Consider an explicit hybrid/fallback search mode after reviewing `compare-search-engines` diagnostics.
-- Keep `like` as the default unless a future design can prove no loss of verified results.
+- Consider an explicit hybrid/fallback search mode after reviewing `compare-search-engines` visible/hidden-only diagnostics.
+- Keep `like` as the default unless a future design can prove no loss of visible or verified results.
 - Keep source-field verification, text quality diagnostics, and BROKEN match hiding behavior.
 
 ## Out Of Scope For Now

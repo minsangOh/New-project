@@ -2,7 +2,7 @@
 
 Repository: https://github.com/minsangOh/New-project
 Branch: master
-Last known state: Phase 1 through Phase 3C-5 complete.
+Last known state: Phase 1 through Phase 3C-6 complete.
 
 Use this file as the first context document for future Codex work. It is intended to replace long recap prompts.
 
@@ -273,6 +273,36 @@ Not implemented yet:
 - Hybrid/fallback candidate search.
 - Lucene candidate engine.
 
+
+### Phase 3C-6: Compare Diagnostics Visible Result Refinement
+
+Implemented:
+
+- `compare-search-engines` now separates verified-message differences from displayed-result differences.
+- Summary output now includes displayed counts and hidden-only counts:
+  - `likeDisplayedMessages`
+  - `fts5DisplayedMessages`
+  - `commonDisplayedMessages`
+  - `likeOnlyDisplayedMessages`
+  - `fts5OnlyDisplayedMessages`
+  - `likeOnlyHiddenOnlyMessages`
+  - `fts5OnlyHiddenOnlyMessages`
+- LIKE-only and FTS5-only message diagnostics now print `visibilityClass`:
+  - `visible`: at least one match is visible under the current display policy.
+  - `hidden_only`: all matches are hidden BROKEN matches under the current display policy.
+- Diagnosis hints now distinguish visible FTS5 misses from hidden-only BROKEN differences.
+
+Real-store observations captured for future hybrid design:
+
+- `DA96-01767C`: visible LIKE-only subject misses were observed. The subject contained `DA96-01767CD` while the query was `DA96-01767C`; LIKE found it as a substring, while FTS5 missed it as a candidate. This matters for part-number/model-name search.
+- Korean query `삼성전자`: LIKE-only differences included both hidden-only BROKEN matches and a visible `body_html_text` match.
+- Korean query `얼음정수기`: LIKE-only differences were hidden-only BROKEN matches under the default display policy.
+
+Not implemented yet:
+
+- Hybrid/fallback candidate search.
+- Automatic fallback from FTS5 to LIKE.
+- Lucene candidate engine.
 ## Current CLI List
 
 Global pattern:
@@ -335,15 +365,16 @@ Search:
 - `benchmark-search` compares LIKE and FTS5 speed/counts but does not change the default engine automatically.
 - Real-store benchmarks showed FTS5 candidate misses for some important Korean/part-number queries, so `like` remains the default.
 - FTS5 can miss some punctuation-heavy arbitrary strings depending on SQLite tokenization. Use `--engine like` as the conservative fallback when validating suspicious misses.
+- `compare-search-engines` separates visible/displayed differences from hidden-only BROKEN differences, so future hybrid design should focus on visible misses first.
 
 ## Next Planned Phase
 
-### Phase 3C-6: Hybrid Candidate Search Design
+### Phase 3C-7: Visible-Miss-Based Hybrid Candidate Search Design
 
 Goal:
 
-- Evaluate an explicit hybrid/fallback candidate strategy using `compare-search-engines` output.
-- Keep `like` as default until a hybrid/fallback design proves it does not reduce verified results.
+- Evaluate an explicit hybrid/fallback candidate strategy using `compare-search-engines` visible/hidden-only diagnostics.
+- Keep `like` as default until a hybrid/fallback design proves it does not reduce visible or verified results.
 - Continue treating FTS5 as a fast optional candidate layer.
 
 Required invariant:
@@ -355,10 +386,10 @@ Required invariant:
 
 Suggested next Phase 3C work:
 
-1. Review LIKE-only message fields from `compare-search-engines`.
+1. Review LIKE-only visible message fields from `compare-search-engines`.
 2. Design an opt-in hybrid mode, such as FTS5 first plus LIKE fallback for risky queries.
 3. Define risky-query detection for part numbers, model names, hyphens, hashes, and important Korean terms.
-4. Test that hybrid mode never reduces verified results compared with LIKE.
+4. Test that hybrid mode never reduces visible or verified results compared with LIKE.
 5. Keep `--include-broken` and `hiddenBrokenMatches` behavior unchanged.
 
 ## Explicitly Out of Scope For Now

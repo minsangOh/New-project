@@ -14,6 +14,13 @@ public record CompareSearchReport(
         long likeVerifiedMessages,
         long fts5VerifiedMessages,
         long commonVerifiedMessages,
+        long likeDisplayedMessages,
+        long fts5DisplayedMessages,
+        long commonDisplayedMessages,
+        long likeOnlyDisplayedMessages,
+        long fts5OnlyDisplayedMessages,
+        long likeOnlyHiddenOnlyMessages,
+        long fts5OnlyHiddenOnlyMessages,
         List<ComparedMessage> likeOnlyMessages,
         List<ComparedMessage> fts5OnlyMessages,
         String fts5Error

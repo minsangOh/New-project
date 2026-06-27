@@ -45,6 +45,8 @@ public class CompareSearchService {
         Map<Long, VerifiedMessage> fts5Messages = fts5 == null ? Map.of() : byMessageId(fts5);
         Set<Long> common = new LinkedHashSet<>(likeMessages.keySet());
         common.retainAll(fts5Messages.keySet());
+        List<ComparedMessage> likeOnly = difference(likeMessages, fts5Messages, includeBroken);
+        List<ComparedMessage> fts5Only = difference(fts5Messages, likeMessages, includeBroken);
 
         return new CompareSearchReport(
                 storePath.toAbsolutePath().normalize(),
@@ -57,8 +59,15 @@ public class CompareSearchService {
                 like.verifiedMessages().size(),
                 fts5 == null ? 0 : fts5.verifiedMessages().size(),
                 common.size(),
-                difference(likeMessages, fts5Messages, includeBroken),
-                difference(fts5Messages, likeMessages, includeBroken),
+                displayedMessages(likeMessages, includeBroken),
+                displayedMessages(fts5Messages, includeBroken),
+                commonDisplayedMessages(likeMessages, fts5Messages, common, includeBroken),
+                countVisible(likeOnly),
+                countVisible(fts5Only),
+                countHiddenOnly(likeOnly),
+                countHiddenOnly(fts5Only),
+                likeOnly,
+                fts5Only,
                 fts5Error
         );
     }
@@ -84,6 +93,40 @@ public class CompareSearchService {
             }
         }
         return List.copyOf(messages);
+    }
+
+    private long displayedMessages(Map<Long, VerifiedMessage> messages, boolean includeBroken) {
+        return messages.values().stream()
+                .map(message -> toComparedMessage(message, includeBroken))
+                .filter(message -> message.visibleMatchCount() > 0)
+                .count();
+    }
+
+    private long commonDisplayedMessages(Map<Long, VerifiedMessage> left,
+                                         Map<Long, VerifiedMessage> right,
+                                         Set<Long> common,
+                                         boolean includeBroken) {
+        long count = 0;
+        for (Long messageId : common) {
+            ComparedMessage leftMessage = toComparedMessage(left.get(messageId), includeBroken);
+            ComparedMessage rightMessage = toComparedMessage(right.get(messageId), includeBroken);
+            if (leftMessage.visibleMatchCount() > 0 && rightMessage.visibleMatchCount() > 0) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private long countVisible(List<ComparedMessage> messages) {
+        return messages.stream()
+                .filter(message -> message.visibleMatchCount() > 0)
+                .count();
+    }
+
+    private long countHiddenOnly(List<ComparedMessage> messages) {
+        return messages.stream()
+                .filter(message -> message.visibleMatchCount() == 0 && message.hiddenBrokenMatches() > 0)
+                .count();
     }
 
     private ComparedMessage toComparedMessage(VerifiedMessage message, boolean includeBroken) {

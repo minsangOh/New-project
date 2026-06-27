@@ -13,4 +13,13 @@ public record ComparedMessage(
         long hiddenBrokenMatches,
         String preview
 ) {
+    public String visibilityClass() {
+        if (visibleMatchCount > 0) {
+            return "visible";
+        }
+        if (hiddenBrokenMatches > 0) {
+            return "hidden_only";
+        }
+        return "none";
+    }
 }
