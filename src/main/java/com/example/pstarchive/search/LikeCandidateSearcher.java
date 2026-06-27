@@ -9,7 +9,8 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-public class CandidateSearcher {
+public class LikeCandidateSearcher implements CandidateSearchEngine {
+    @Override
     public List<SearchCandidate> search(Path storePath, NormalizedQuery query, List<SearchField> fields, int limit) throws SQLException {
         int candidateLimit = Math.max(100, Math.max(1, limit) * 100);
         String where = buildWhere(fields, query.escapedCandidateTerms().size());
@@ -39,6 +40,11 @@ public class CandidateSearcher {
             }
         }
         return candidates;
+    }
+
+    @Override
+    public String name() {
+        return "like";
     }
 
     private String buildWhere(List<SearchField> fields, int termCount) {

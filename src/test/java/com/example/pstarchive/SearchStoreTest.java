@@ -9,10 +9,13 @@ import com.example.pstarchive.index.PstIndexSummary;
 import com.example.pstarchive.index.ShardStoreSchema;
 import com.example.pstarchive.pst.ExtractedFolder;
 import com.example.pstarchive.pst.ExtractedMail;
+import com.example.pstarchive.search.CandidateSearchEngine;
 import com.example.pstarchive.search.MatchLocator;
 import com.example.pstarchive.search.MatchPolicy;
 import com.example.pstarchive.search.NormalizedQuery;
+import com.example.pstarchive.search.RawFieldVerifier;
 import com.example.pstarchive.search.SearchField;
+import com.example.pstarchive.search.SearchCandidate;
 import com.example.pstarchive.search.SearchQueryNormalizer;
 import com.example.pstarchive.search.SearchResponse;
 import com.example.pstarchive.search.SearchResultFormatter;
@@ -80,6 +83,46 @@ class SearchStoreTest {
         assertEquals(1, service.search(store, "wire harness", 20, 80, 5, SearchField.allSearchable()).verifiedMessages().size());
     }
 
+
+    @Test
+    void searchStoreServiceUsesInjectedCandidateSearchEngine() throws Exception {
+        Path store = Files.createFile(tempDir.resolve("fake-store.sqlite"));
+        CandidateSearchEngine engine = new CandidateSearchEngine() {
+            @Override
+            public List<SearchCandidate> search(Path storePath, NormalizedQuery query, List<SearchField> fields, int limit) {
+                return List.of(new SearchCandidate(
+                        900L,
+                        "/Root/Inbox",
+                        12345L,
+                        "message-12345",
+                        "RWP90H from injected engine",
+                        "OK",
+                        "sender",
+                        "sender@example.com",
+                        "me@example.com",
+                        null,
+                        "2026-06-18T14:22:00+09:00",
+                        "2026-06-18T14:23:00+09:00",
+                        null,
+                        "NULL",
+                        null,
+                        "NULL"
+                ));
+            }
+
+            @Override
+            public String name() {
+                return "fake";
+            }
+        };
+
+        SearchResponse response = new SearchStoreService(new SearchQueryNormalizer(), engine, new RawFieldVerifier())
+                .search(store, "RWP90H", 20, 80, 5, List.of(SearchField.SUBJECT));
+
+        assertEquals(1, response.sqlCandidates());
+        assertEquals(1, response.verifiedMessages().size());
+        assertEquals("subject", response.verifiedMessages().get(0).matches().get(0).field());
+    }
     @Test
     void computesLineParagraphContextAndMultipleMatches() {
         SearchQueryNormalizer normalizer = new SearchQueryNormalizer();

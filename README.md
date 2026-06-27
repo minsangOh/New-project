@@ -6,7 +6,7 @@ Before starting future Codex work, read [`PROJECT_STATE.md`](PROJECT_STATE.md) f
 
 ## Current Status
 
-The repository is currently complete through **Phase 3B-Fix**.
+The repository is currently complete through **Phase 3C-0**.
 
 Completed phases:
 
@@ -17,6 +17,7 @@ Completed phases:
 - Phase 3A-Verify: Store Inspection
 - Phase 3B: SQLite `LIKE` Search MVP with source-field verification
 - Phase 3B-Fix: Text Quality Diagnostics and BROKEN match display policy
+- Phase 3C-0: Candidate Search Abstraction
 
 For detailed phase history, CLI behavior, known issues, and future boundaries, see [`PROJECT_STATE.md`](PROJECT_STATE.md).
 
@@ -97,11 +98,11 @@ Search:
 
 ## Next Phase
 
-Next planned work is **Phase 3C: Candidate Search Acceleration**.
+Next planned work is **Phase 3C: Candidate Search Acceleration** beyond the current abstraction step.
 
 Goal:
 
-- Replace or augment SQLite `LIKE` candidate search with SQLite FTS5 or Apache Lucene.
+- Add a SQLite FTS5 or Apache Lucene implementation behind the existing candidate search abstraction.
 - Keep the existing source-field verification logic.
 - Keep text quality diagnostics and BROKEN match hiding behavior.
 

@@ -7,16 +7,16 @@ import java.util.List;
 
 public class SearchStoreService {
     private final SearchQueryNormalizer normalizer;
-    private final CandidateSearcher candidateSearcher;
+    private final CandidateSearchEngine candidateSearchEngine;
     private final RawFieldVerifier verifier;
 
     public SearchStoreService() {
-        this(new SearchQueryNormalizer(), new CandidateSearcher(), new RawFieldVerifier());
+        this(new SearchQueryNormalizer(), new LikeCandidateSearcher(), new RawFieldVerifier());
     }
 
-    public SearchStoreService(SearchQueryNormalizer normalizer, CandidateSearcher candidateSearcher, RawFieldVerifier verifier) {
+    public SearchStoreService(SearchQueryNormalizer normalizer, CandidateSearchEngine candidateSearchEngine, RawFieldVerifier verifier) {
         this.normalizer = normalizer;
-        this.candidateSearcher = candidateSearcher;
+        this.candidateSearchEngine = candidateSearchEngine;
         this.verifier = verifier;
     }
 
@@ -30,7 +30,7 @@ public class SearchStoreService {
         int safeLimit = Math.max(1, limit);
         int safeContext = Math.max(0, contextChars);
         int safeMaxMatches = Math.max(1, maxMatchesPerMessage);
-        List<SearchCandidate> candidates = candidateSearcher.search(normalizedStore, query, fields, safeLimit);
+        List<SearchCandidate> candidates = candidateSearchEngine.search(normalizedStore, query, fields, safeLimit);
         List<VerifiedMessage> verified = new ArrayList<>();
         long totalMatches = 0;
         for (SearchCandidate candidate : candidates) {

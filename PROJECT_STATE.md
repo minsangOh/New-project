@@ -2,7 +2,7 @@
 
 Repository: https://github.com/minsangOh/New-project
 Branch: master
-Last known state: Phase 1 through Phase 3B-Fix complete.
+Last known state: Phase 1 through Phase 3C-0 complete.
 
 Use this file as the first context document for future Codex work. It is intended to replace long recap prompts.
 
@@ -154,6 +154,20 @@ Main CLI:
 - `dump-message-raw <store.sqlite> --id <message_id> --output <report.txt>`
 - `search-store <store.sqlite> <query> --include-broken`
 
+
+### Phase 3C-0: Candidate Search Abstraction
+
+Implemented:
+
+- Candidate search interface for swappable candidate engines.
+- LIKE candidate search moved into `LikeCandidateSearcher`.
+- `SearchStoreService` depends on the candidate search interface instead of a concrete LIKE SQL class.
+- Existing raw-field verification, match location, BROKEN match hiding, and search result formatting behavior are preserved.
+
+Not implemented yet:
+
+- SQLite FTS5 candidate engine.
+- Lucene candidate engine.
 ## Current CLI List
 
 Global pattern:
@@ -209,7 +223,7 @@ Search:
 - `dump-message-raw` should be used to compare `body_html` and `body_html_text` before deciding where the damage happened.
 - `search-store` hides BROKEN quality matches by default to avoid noisy broken body context.
 - Use `search-store --include-broken` only when debugging damaged body text.
-- Current candidate search uses SQLite `LIKE`, so it is acceptable for MVP validation but not ideal for large stores.
+- Current candidate search uses the candidate-search abstraction with the LIKE engine as the only implemented engine. SQLite `LIKE` is acceptable for MVP validation but not ideal for large stores.
 
 ## Next Planned Phase
 
