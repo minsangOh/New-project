@@ -612,3 +612,94 @@ Current limitations:
 - Normalized and whitespace-insensitive matches may use approximate offsets when exact source offset mapping is not possible.
 
 Phase 3C should replace the slow candidate layer with FTS5 or Lucene while keeping the same source-field verification step.
+
+## Phase 3B-Fix Stored Text Quality Diagnostics
+
+Phase 3B-Fix keeps the existing SQLite `LIKE` search flow and adds diagnostics for stored text quality. It still does not implement Lucene, SQLite FTS5, GUI, attachment search, or AI Q&A.
+
+### Console Encoding vs Stored Text Problems
+
+PowerShell console output can display Korean incorrectly even when the report file is correct. Prefer UTF-8 report files when checking Korean text:
+
+```powershell
+.\gradlew.bat run --args="search-store D:\MailArchive\oms39-store.sqlite RWP90H --limit 20 --output D:\MailArchive\search-rwp90h.txt"
+```
+
+Interpretation:
+
+- If Korean is normal in the UTF-8 output file but broken in the console, treat it as a console encoding/display issue.
+- If the UTF-8 output file still contains many `????`, replacement characters, `占`, or NUL-related artifacts, treat it as stored text extraction or recovery quality degradation.
+- `body_html_text` can be more degraded than `subject`, `folder_path`, or sender fields because it often comes from HTML with mixed or missing charset metadata.
+
+### NUL Character Cleanup
+
+The store writer removes `\u0000` NUL characters from searchable stored fields before saving them. This is intended to turn values such as `M\u0000i\u0000c\u0000r\u0000o...` into `Microsoft Outlook` for search and display.
+
+NUL cleanup is applied to:
+
+- `folder_path`
+- `subject`
+- `sender_name`
+- `sender_email`
+- `recipients`
+- `cc`
+- `body_text`
+- `body_html_text`
+
+The raw `body_html` field is still treated cautiously because it may be useful for later extraction debugging.
+
+### Diagnose Text Quality
+
+Run a store-level text quality diagnostic report:
+
+```powershell
+.\gradlew.bat run --args="diagnose-text-quality D:\MailArchive\oms39-store.sqlite --limit 100 --output D:\MailArchive\text-quality-report.txt"
+```
+
+The report includes:
+
+- `messagesChecked`
+- `fieldsChecked`
+- `okFields`
+- `suspectFields`
+- `degradedFields`
+- `brokenFields`
+- `nulCharFields`
+- `questionHeavyFields`
+- `mojibakeFields`
+- `statusMismatchCount`
+- example fields where stored status says `OK` but diagnostics see suspicious or degraded text
+
+### Dump One Message Raw
+
+Inspect one message with field lengths, NUL counts, question mark ratios, mojibake signals, previews, and Unicode code point samples:
+
+```powershell
+.\gradlew.bat run --args="dump-message-raw D:\MailArchive\oms39-store.sqlite --id 160 --output D:\MailArchive\message-160-raw.txt"
+```
+
+Use this when a search result shows degraded context and you need to decide whether the problem is console display, SQLite stored text, or earlier PST extraction/encoding recovery.
+
+### Search Output Quality Fields
+
+`search-store` now prints quality information for each matched field:
+
+```text
+- field: body_html_text
+  fieldStatus: DEGRADED
+  textQuality: SUSPECT
+  qualityWarnings: high_question_mark_ratio
+```
+
+`fieldStatus` is the status stored in SQLite when available. `textQuality` and `qualityWarnings` are computed at read time from the actual stored field value.
+
+### Before Moving To Phase 3C
+
+Proceed only when:
+
+- search results are returned for known terms such as `RWP90H` and `DA96-01767C`.
+- UTF-8 output files show `subject`, `folder_path`, and sender fields correctly enough for business use.
+- isolated `body_html_text` degradation is understood and acceptable.
+- excessive `BROKEN` or `UNRECOVERABLE` fields have been reviewed with `diagnose-text-quality` and `dump-message-raw`.
+
+Phase 3C can replace the slow candidate layer with Lucene or FTS5, but it must keep source-field re-verification and text quality reporting.

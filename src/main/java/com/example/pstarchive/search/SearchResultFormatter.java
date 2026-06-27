@@ -1,9 +1,14 @@
 package com.example.pstarchive.search;
 
+import com.example.pstarchive.textquality.TextQualityAnalyzer;
+import com.example.pstarchive.textquality.TextQualityResult;
+
 import java.io.PrintStream;
+import java.util.Arrays;
 
 public class SearchResultFormatter {
     private final PrintStream out;
+    private final TextQualityAnalyzer qualityAnalyzer = new TextQualityAnalyzer();
 
     public SearchResultFormatter(PrintStream out) {
         this.out = out;
@@ -39,7 +44,12 @@ public class SearchResultFormatter {
             out.println();
             out.println("MATCHES");
             for (FieldMatch match : message.matches()) {
+                SearchField field = fieldFor(match.field());
+                TextQualityResult quality = qualityAnalyzer.diagnose(field == null ? null : candidate.fieldValue(field));
                 out.println("- field: " + match.field());
+                out.println("  fieldStatus: " + fieldStatus(candidate, field));
+                out.println("  textQuality: " + quality.level());
+                out.println("  qualityWarnings: " + (quality.warnings().isEmpty() ? "<none>" : String.join(",", quality.warnings())));
                 out.println("  offset: " + match.offset());
                 out.println("  length: " + match.length());
                 out.println("  line: " + match.lineNumber());
@@ -51,6 +61,20 @@ public class SearchResultFormatter {
             }
             out.println("--------------------------------------------------");
         }
+    }
+
+    private SearchField fieldFor(String fieldName) {
+        return Arrays.stream(SearchField.values())
+                .filter(field -> field.columnName().equalsIgnoreCase(fieldName) || field.displayName().equalsIgnoreCase(fieldName))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private String fieldStatus(SearchCandidate candidate, SearchField field) {
+        if (field == null) {
+            return "<unknown>";
+        }
+        return candidate.statusByField().getOrDefault(field.columnName(), "<not_tracked>");
     }
 
     private String value(Object value) {

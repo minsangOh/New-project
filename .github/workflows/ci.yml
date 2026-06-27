@@ -60,3 +60,9 @@ jobs:
 
       - name: Smoke test search-store help
         run: .\gradlew.bat run --args="search-store --help"
+
+      - name: Smoke test diagnose-text-quality help
+        run: .\gradlew.bat run --args="diagnose-text-quality --help"
+
+      - name: Smoke test dump-message-raw help
+        run: .\gradlew.bat run --args="dump-message-raw --help"

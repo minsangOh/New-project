@@ -1,8 +1,12 @@
 package com.example.pstarchive.index;
 
 import com.example.pstarchive.encoding.ExtractedText;
+import com.example.pstarchive.encoding.TextRecoveryStatus;
 import com.example.pstarchive.pst.ExtractedFolder;
 import com.example.pstarchive.pst.ExtractedMail;
+import com.example.pstarchive.textquality.StoredTextSanitizer;
+import com.example.pstarchive.textquality.TextQualityAnalyzer;
+import com.example.pstarchive.textquality.TextQualityLevel;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -17,6 +21,7 @@ public class MessageStoreWriter implements AutoCloseable {
     private final PreparedStatement selectFolderId;
     private final PreparedStatement upsertMessage;
     private final PreparedStatement insertError;
+    private final TextQualityAnalyzer textQualityAnalyzer = new TextQualityAnalyzer();
 
     public MessageStoreWriter(Connection connection) throws SQLException {
         this.connection = connection;
@@ -81,50 +86,55 @@ public class MessageStoreWriter implements AutoCloseable {
     }
 
     public long writeFolder(ExtractedFolder folder) throws SQLException {
+        String folderPath = StoredTextSanitizer.sanitize(folder.folderPath());
         bindNullableLong(upsertFolder, 1, folder.parentId());
-        upsertFolder.setString(2, folder.folderPath());
-        upsertFolder.setString(3, folder.displayName());
+        upsertFolder.setString(2, folderPath);
+        upsertFolder.setString(3, StoredTextSanitizer.sanitize(folder.displayName()));
         bindNullableLong(upsertFolder, 4, folder.descriptorNodeId());
         bindNullableInteger(upsertFolder, 5, folder.itemCount());
         bindNullableInteger(upsertFolder, 6, folder.subfolderCount());
         upsertFolder.setLong(7, System.currentTimeMillis());
         upsertFolder.executeUpdate();
 
-        selectFolderId.setString(1, folder.folderPath());
+        selectFolderId.setString(1, folderPath);
         try (ResultSet resultSet = selectFolderId.executeQuery()) {
             if (resultSet.next()) {
                 return resultSet.getLong(1);
             }
         }
-        throw new SQLException("Folder id was not found after upsert: " + folder.folderPath());
+        throw new SQLException("Folder id was not found after upsert: " + folderPath);
     }
 
     public int writeMessage(ExtractedMail mail) throws SQLException {
+        ExtractedText subject = sanitizeSearchText(mail.subject());
+        ExtractedText bodyText = sanitizeSearchText(mail.bodyText());
+        ExtractedText bodyHtmlText = sanitizeSearchText(mail.bodyHtmlText());
+
         bindNullableLong(upsertMessage, 1, mail.folderId());
-        upsertMessage.setString(2, mail.folderPath());
+        upsertMessage.setString(2, StoredTextSanitizer.sanitize(mail.folderPath()));
         bindNullableLong(upsertMessage, 3, mail.descriptorNodeId());
         upsertMessage.setString(4, mail.internetMessageId());
-        bindText(upsertMessage, 5, 6, 7, mail.subject());
-        upsertMessage.setString(8, text(mail.senderName()));
-        upsertMessage.setString(9, mail.senderEmail());
-        upsertMessage.setString(10, text(mail.recipients()));
-        upsertMessage.setString(11, text(mail.cc()));
+        bindText(upsertMessage, 5, 6, 7, subject);
+        upsertMessage.setString(8, StoredTextSanitizer.sanitize(text(mail.senderName())));
+        upsertMessage.setString(9, StoredTextSanitizer.sanitize(mail.senderEmail()));
+        upsertMessage.setString(10, StoredTextSanitizer.sanitize(text(mail.recipients())));
+        upsertMessage.setString(11, StoredTextSanitizer.sanitize(text(mail.cc())));
         upsertMessage.setString(12, mail.sentAt());
         upsertMessage.setString(13, mail.receivedAt());
-        bindText(upsertMessage, 14, 15, 16, mail.bodyText());
+        bindText(upsertMessage, 14, 15, 16, bodyText);
         bindText(upsertMessage, 17, 18, 19, mail.bodyHtml());
-        upsertMessage.setString(20, text(mail.bodyHtmlText()));
-        upsertMessage.setString(21, status(mail.bodyHtmlText()));
-        upsertMessage.setInt(22, mail.bodyText().length());
-        upsertMessage.setInt(23, mail.bodyHtml().length());
-        upsertMessage.setInt(24, mail.bodyHtmlText().length());
+        upsertMessage.setString(20, text(bodyHtmlText));
+        upsertMessage.setString(21, status(bodyHtmlText));
+        upsertMessage.setInt(22, length(bodyText));
+        upsertMessage.setInt(23, length(mail.bodyHtml()));
+        upsertMessage.setInt(24, length(bodyHtmlText));
         upsertMessage.setLong(25, System.currentTimeMillis());
         upsertMessage.setString(26, mail.parseStatus());
         return upsertMessage.executeUpdate();
     }
 
     public void writeError(IndexFieldError error) throws SQLException {
-        insertError.setString(1, error.folderPath());
+        insertError.setString(1, StoredTextSanitizer.sanitize(error.folderPath()));
         bindNullableLong(insertError, 2, error.descriptorNodeId());
         insertError.setString(3, error.stage());
         insertError.setString(4, error.fieldName());
@@ -199,11 +209,40 @@ public class MessageStoreWriter implements AutoCloseable {
     private void bindText(PreparedStatement statement, int textIndex, int statusIndex, int sourceIndex, ExtractedText text) throws SQLException {
         statement.setString(textIndex, text(text));
         statement.setString(statusIndex, status(text));
-        statement.setString(sourceIndex, text.source());
+        statement.setString(sourceIndex, source(text));
+    }
+
+    private ExtractedText sanitizeSearchText(ExtractedText text) {
+        if (text == null) {
+            return null;
+        }
+        String sanitized = StoredTextSanitizer.sanitize(text.text());
+        return new ExtractedText(sanitized, adjustedStatus(text.status(), sanitized), text.source(), text.errorType(), text.errorMessage());
+    }
+
+    private TextRecoveryStatus adjustedStatus(TextRecoveryStatus status, String text) {
+        if (status == null) {
+            return TextRecoveryStatus.NULL;
+        }
+        if (status == TextRecoveryStatus.OK) {
+            TextQualityLevel level = textQualityAnalyzer.diagnose(text).level();
+            if (level == TextQualityLevel.SUSPECT || level == TextQualityLevel.DEGRADED || level == TextQualityLevel.BROKEN) {
+                return TextRecoveryStatus.DEGRADED;
+            }
+        }
+        return status;
     }
 
     private String text(ExtractedText text) {
         return text == null ? null : text.text();
+    }
+
+    private String source(ExtractedText text) {
+        return text == null ? null : text.source();
+    }
+
+    private int length(ExtractedText text) {
+        return text == null ? 0 : text.length();
     }
 
     private String status(ExtractedText text) {
