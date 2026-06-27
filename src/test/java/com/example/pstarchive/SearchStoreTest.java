@@ -15,11 +15,15 @@ import com.example.pstarchive.search.NormalizedQuery;
 import com.example.pstarchive.search.SearchField;
 import com.example.pstarchive.search.SearchQueryNormalizer;
 import com.example.pstarchive.search.SearchResponse;
+import com.example.pstarchive.search.SearchResultFormatter;
 import com.example.pstarchive.search.SearchStoreService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
@@ -113,9 +117,39 @@ class SearchStoreTest {
 
         assertTrue(commandLine.getSubcommands().containsKey("search-store"));
         assertDoesNotThrow(() -> commandLine.parseArgs("search-store", "store.sqlite", "RWP90H", "--limit", "20",
-                "--context", "80", "--field", "body", "--max-matches-per-message", "3", "--output", "out.txt"));
+                "--context", "80", "--field", "body", "--max-matches-per-message", "3", "--include-broken", "--output", "out.txt"));
     }
 
+
+    @Test
+    void formatterHidesBrokenMatchesByDefaultAndShowsHiddenCount() throws Exception {
+        Path store = createSearchStoreWithBrokenBodyMatch();
+        SearchResponse response = new SearchStoreService().search(store, "RWP90H", 20, 80, 5, SearchField.allSearchable());
+
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        new SearchResultFormatter(new PrintStream(buffer, true, StandardCharsets.UTF_8))
+                .print(new SearchResultFormatter.PathLabel(store.toString()), response, false);
+        String output = buffer.toString(StandardCharsets.UTF_8);
+
+        assertTrue(output.contains("hiddenBrokenMatches: 1"));
+        assertTrue(output.contains("field: subject"));
+        assertFalse(output.contains("field: body_html_text"));
+    }
+
+    @Test
+    void formatterIncludesBrokenMatchesWhenRequested() throws Exception {
+        Path store = createSearchStoreWithBrokenBodyMatch();
+        SearchResponse response = new SearchStoreService().search(store, "RWP90H", 20, 80, 5, SearchField.allSearchable());
+
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        new SearchResultFormatter(new PrintStream(buffer, true, StandardCharsets.UTF_8))
+                .print(new SearchResultFormatter.PathLabel(store.toString()), response, true);
+        String output = buffer.toString(StandardCharsets.UTF_8);
+
+        assertTrue(output.contains("hiddenBrokenMatches: 0"));
+        assertTrue(output.contains("field: body_html_text"));
+        assertTrue(output.contains("textQuality: BROKEN"));
+    }
     private Path createSearchStore() throws Exception {
         Path store = tempDir.resolve("search-store.sqlite");
         try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + store.toAbsolutePath())) {
@@ -139,6 +173,26 @@ class SearchStoreTest {
         return store;
     }
 
+
+    private Path createSearchStoreWithBrokenBodyMatch() throws Exception {
+        Path store = tempDir.resolve("broken-search-store.sqlite");
+        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + store.toAbsolutePath())) {
+            ShardStoreSchema.migrate(connection);
+            connection.setAutoCommit(false);
+            try (MessageStoreWriter writer = new MessageStoreWriter(connection)) {
+                long runId = writer.startRun("sample.pst", 10, true);
+                long folderId = writer.writeFolder(new ExtractedFolder(null, null, "/Root/Inbox", "Inbox", 10L, 1, 0));
+                writer.writeMessage(mailWithTexts(folderId, 10L,
+                        "RWP90H normal subject",
+                        ExtractedText.nullValue(),
+                        text("<html><body>?????????? RWP90H ??????????</body></html>"),
+                        text("?????????? RWP90H ??????????")));
+                writer.finishRun(runId, new PstIndexSummary(1, 1, 1, 0, 0, 0, 2, 1, 0, 0, 0, 10, "SUCCESS"));
+                connection.commit();
+            }
+        }
+        return store;
+    }
     private ExtractedMail mail(long folderId, long descriptorNodeId, String subject, String senderName, String senderEmail,
                                String recipients, String cc, String body) {
         return new ExtractedMail(
@@ -161,6 +215,28 @@ class SearchStoreTest {
         );
     }
 
+
+    private ExtractedMail mailWithTexts(long folderId, long descriptorNodeId, String subject, ExtractedText bodyText,
+                                        ExtractedText bodyHtml, ExtractedText bodyHtmlText) {
+        return new ExtractedMail(
+                folderId,
+                "/Root/Inbox",
+                descriptorNodeId,
+                "message-" + descriptorNodeId,
+                text(subject),
+                text("sender"),
+                "sender@example.com",
+                text("me@example.com"),
+                ExtractedText.nullValue(),
+                "2026-06-18T14:22:00+09:00",
+                "2026-06-18T14:23:00+09:00",
+                bodyText,
+                bodyHtml,
+                bodyHtmlText,
+                "OK",
+                List.of()
+        );
+    }
     private ExtractedText text(String value) {
         return new ExtractedText(value, TextRecoveryStatus.OK, "fixture", null, null);
     }

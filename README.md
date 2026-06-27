@@ -703,3 +703,43 @@ Proceed only when:
 - excessive `BROKEN` or `UNRECOVERABLE` fields have been reviewed with `diagnose-text-quality` and `dump-message-raw`.
 
 Phase 3C can replace the slow candidate layer with Lucene or FTS5, but it must keep source-field re-verification and text quality reporting.
+
+### Body HTML vs Body HTML Text Damage Triage
+
+Some messages can have healthy metadata while `body_html_text` is already damaged in SQLite. If the UTF-8 output file shows repeated `U+003F` question marks in code point samples, the text has already been stored as literal `?`; that is not a PowerShell display problem.
+
+Use `dump-message-raw` to compare the original stored HTML with the extracted HTML text:
+
+```powershell
+.\gradlew.bat run --args="dump-message-raw D:\MailArchive\oms39-store.sqlite --id 55 --output D:\MailArchive\message-55-raw.txt"
+```
+
+The dump now includes `body_html` and `body_html_text` length, preview, code point sample, question mark counts, question mark ratio, repeated question mark runs, detected HTML charset/meta charset, and a comparison verdict.
+
+Comparison verdicts:
+
+- `OK`: both `body_html` and `body_html_text` look usable.
+- `SOURCE_HTML_BROKEN`: the stored `body_html` itself has strong broken-text signals.
+- `HTML_TO_TEXT_EXTRACTION_PROBLEM`: `body_html` looks usable but `body_html_text` is degraded or broken, so the HTML-to-text extraction step is suspect.
+- `GETTER_OR_RECOVERY_PROBLEM`: `body_html` is missing while `body_html_text` is degraded or broken, so the PST getter or recovery path needs review.
+- `SOURCE_OR_DECODING_BROKEN`: both `body_html` and `body_html_text` are degraded or broken, so the problem likely happened before or during source decoding.
+
+A damaged `body_html_text` does not automatically mean subject, folder, sender, recipient, or part-number search is unusable. In the observed store, metadata fields can be normal Korean while HTML-derived body context is damaged.
+
+### Broken Match Display Policy
+
+By default, `search-store` hides matches whose matched field is diagnosed as `textQuality: BROKEN`. This prevents badly damaged `body_html_text` context from drowning out reliable matches such as `subject` or sender fields. The command still performs SQL candidate search and source-field verification; the hiding is an output policy.
+
+The summary shows how many verified matches were hidden:
+
+```text
+hiddenBrokenMatches: 2
+```
+
+Show BROKEN matches for debugging with:
+
+```powershell
+.\gradlew.bat run --args="search-store D:\MailArchive\oms39-store.sqlite RWP90H --limit 20 --include-broken --output D:\MailArchive\search-rwp90h-with-broken.txt"
+```
+
+Use the default output for normal work, and use `--include-broken` when diagnosing damaged body text extraction.

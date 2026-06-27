@@ -26,18 +26,29 @@ public class TextQualityAnalyzer {
         int mojibakePatterns = mojibakePatternCount(value);
         double brokenRatio = KoreanTextQualityScorer.brokenCharRatio(value);
         List<String> warnings = warnings(sanitized.nulRemoved(), questionRatio, repeatedQuestionRuns, mojibakePatterns);
+        if (isNormalShortKoreanLabel(value, sanitized.nulRemoved(), questionMarks)) {
+            return new TextQualityResult(TextQualityLevel.OK, "ok_short_korean_label", visible,
+                    sanitized.nulRemoved(), questionMarks, questionRatio, repeatedQuestionRuns, mojibakePatterns,
+                    List.of(), TextPreviewer.preview(value, PREVIEW_LIMIT));
+        }
+        boolean hasConcreteWarning = !warnings.isEmpty();
 
         TextQualityLevel level = TextQualityLevel.OK;
         String reason = "ok";
-        if (mojibakePatterns >= 4 || brokenRatio >= 0.35 || (questionMarks >= 8 && questionRatio >= 0.30)) {
+        if (mojibakePatterns >= 4 || (hasConcreteWarning && brokenRatio >= 0.35) || (questionMarks >= 8 && questionRatio >= 0.30)) {
             level = TextQualityLevel.BROKEN;
             reason = "high_mojibake_or_question_ratio";
-        } else if (mojibakePatterns >= 2 || repeatedQuestionRuns >= 2 || brokenRatio >= 0.12 || (questionMarks >= 5 && questionRatio >= 0.12)) {
+        } else if (mojibakePatterns >= 2 || repeatedQuestionRuns >= 2 || (hasConcreteWarning && brokenRatio >= 0.12) || (questionMarks >= 5 && questionRatio >= 0.12)) {
             level = TextQualityLevel.DEGRADED;
             reason = "degraded_text_signals";
-        } else if (mojibakePatterns >= 1 || repeatedQuestionRuns >= 1 || brokenRatio >= 0.05 || (questionMarks >= 3 && questionRatio >= 0.08)) {
+        } else if (mojibakePatterns >= 1 || repeatedQuestionRuns >= 1 || (hasConcreteWarning && brokenRatio >= 0.05) || (questionMarks >= 3 && questionRatio >= 0.08)) {
             level = TextQualityLevel.SUSPECT;
             reason = "suspect_text_signals";
+        }
+
+        if (warnings.isEmpty() && (level == TextQualityLevel.DEGRADED || level == TextQualityLevel.BROKEN)) {
+            level = TextQualityLevel.OK;
+            reason = "ok_no_concrete_warning";
         }
 
         return new TextQualityResult(level, reason, visible, sanitized.nulRemoved(), questionMarks, questionRatio,
@@ -76,6 +87,32 @@ public class TextQualityAnalyzer {
         return warnings;
     }
 
+
+    private boolean isNormalShortKoreanLabel(String text, int nulRemoved, int questionMarks) {
+        if (nulRemoved > 0 || questionMarks > 0 || text.indexOf('\uFFFD') >= 0 || text.indexOf('\u5360') >= 0
+                || text.contains("\uC3D9\uC619")) {
+            return false;
+        }
+        int hangul = 0;
+        int visible = 0;
+        for (int i = 0; i < text.length(); ) {
+            int codePoint = text.codePointAt(i);
+            if (!Character.isWhitespace(codePoint)) {
+                visible++;
+                if (isHangul(codePoint)) {
+                    hangul++;
+                } else if (codePoint != ';' && codePoint != ',' && codePoint != '/') {
+                    return false;
+                }
+            }
+            i += Character.charCount(codePoint);
+        }
+        return visible >= 2 && visible <= 20 && hangul >= 2;
+    }
+
+    private boolean isHangul(int codePoint) {
+        return codePoint >= 0xAC00 && codePoint <= 0xD7A3;
+    }
     private int visibleChars(String text) {
         int visible = 0;
         for (int i = 0; i < text.length(); ) {

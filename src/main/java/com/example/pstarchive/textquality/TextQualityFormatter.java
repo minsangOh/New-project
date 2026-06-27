@@ -13,6 +13,7 @@ public class TextQualityFormatter {
 
     private final PrintStream out;
     private final TextQualityAnalyzer analyzer = new TextQualityAnalyzer();
+    private final HtmlBodyTextComparator htmlComparator = new HtmlBodyTextComparator();
 
     public TextQualityFormatter(PrintStream out) {
         this.out = out;
@@ -57,7 +58,9 @@ public class TextQualityFormatter {
         printField("recipients", null, detail.recipients());
         printField("cc", null, detail.cc());
         printField("body_text", detail.bodyTextStatus(), detail.bodyText());
+        printField("body_html", detail.bodyHtmlStatus(), detail.bodyHtml());
         printField("body_html_text", detail.bodyHtmlTextStatus(), detail.bodyHtmlText());
+        printHtmlComparison(detail.bodyHtml(), detail.bodyHtmlText());
     }
 
     private void printDiagnostic(TextFieldDiagnostic diagnostic) {
@@ -91,6 +94,24 @@ public class TextQualityFormatter {
         out.println();
     }
 
+    private void printHtmlComparison(String bodyHtml, String bodyHtmlText) {
+        HtmlTextComparison comparison = htmlComparator.compare(bodyHtml, bodyHtmlText);
+        out.println("BODY HTML TEXT COMPARISON");
+        out.println("bodyHtmlLength: " + length(bodyHtml));
+        out.println("bodyHtmlTextLength: " + length(bodyHtmlText));
+        out.println("bodyHtmlDetectedCharset: " + comparison.detectedCharset());
+        out.println("bodyHtmlQuality: " + comparison.bodyHtmlQuality().level());
+        out.println("bodyHtmlQuestionMarkCount: " + comparison.bodyHtmlQuality().questionMarkCount());
+        out.println("bodyHtmlQuestionMarkRatio: " + String.format(Locale.ROOT, "%.4f", comparison.bodyHtmlQuality().questionMarkRatio()));
+        out.println("bodyHtmlRepeatedQuestionRuns: " + comparison.bodyHtmlQuality().repeatedQuestionRuns());
+        out.println("bodyHtmlTextQuality: " + comparison.bodyHtmlTextQuality().level());
+        out.println("bodyHtmlTextQuestionMarkCount: " + comparison.bodyHtmlTextQuality().questionMarkCount());
+        out.println("bodyHtmlTextQuestionMarkRatio: " + String.format(Locale.ROOT, "%.4f", comparison.bodyHtmlTextQuality().questionMarkRatio()));
+        out.println("bodyHtmlTextRepeatedQuestionRuns: " + comparison.bodyHtmlTextQuality().repeatedQuestionRuns());
+        out.println("damageType: " + comparison.damageType());
+        out.println("reason: " + comparison.reason());
+    }
+
     private String codePoints(String value) {
         if (value == null) {
             return "<null>";
@@ -110,6 +131,10 @@ public class TextQualityFormatter {
             builder.append(" ...");
         }
         return builder.length() == 0 ? "<empty>" : builder.toString();
+    }
+
+    private int length(String value) {
+        return value == null ? 0 : value.length();
     }
 
     private String warnings(List<String> warnings) {

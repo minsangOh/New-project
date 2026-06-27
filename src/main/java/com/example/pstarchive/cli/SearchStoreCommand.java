@@ -36,6 +36,9 @@ public class SearchStoreCommand implements Callable<Integer> {
     @Option(names = "--field", description = "Search field: subject, sender, recipients, cc, folder, body, all. Default: ${DEFAULT-VALUE}")
     private String field = "all";
 
+    @Option(names = "--include-broken", description = "Include BROKEN quality matches that are hidden by default.")
+    private boolean includeBroken;
+
     @Option(names = {"-o", "--output"}, description = "Write report to a UTF-8 text file.")
     private Path outputPath;
 
@@ -55,7 +58,7 @@ public class SearchStoreCommand implements Callable<Integer> {
         }
         return CommandOutput.write(outputPath, out -> {
             var response = new SearchStoreService().search(normalized, query, limit, context, maxMatchesPerMessage, fields);
-            new SearchResultFormatter(out).print(new SearchResultFormatter.PathLabel(normalized.toString()), response);
+            new SearchResultFormatter(out).print(new SearchResultFormatter.PathLabel(normalized.toString()), response, includeBroken);
         });
     }
 }

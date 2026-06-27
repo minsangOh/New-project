@@ -10,6 +10,8 @@ import com.example.pstarchive.index.ShardStoreSchema;
 import com.example.pstarchive.inspect.MessageDetailReader;
 import com.example.pstarchive.pst.ExtractedFolder;
 import com.example.pstarchive.pst.ExtractedMail;
+import com.example.pstarchive.textquality.HtmlBodyTextComparator;
+import com.example.pstarchive.textquality.HtmlTextDamageType;
 import com.example.pstarchive.textquality.StoredTextSanitizer;
 import com.example.pstarchive.textquality.TextQualityAnalyzer;
 import com.example.pstarchive.textquality.TextQualityFormatter;
@@ -33,6 +35,12 @@ class TextQualityDiagnosticsTest {
     private static final String SAMSUNG = "\uC0BC\uC131\uC804\uC790";
     private static final String WATER_PURIFIER = "\uC5BC\uC74C\uC815\uC218\uAE30";
     private static final String MOJIBAKE_SAMPLE = "?\uC88E\uB8DE?\uC1FF\uB71D?\uC208\uC095";
+    private static final String KIM_DEOK_YONG = "\uAE40\uB355\uC6A9";
+    private static final String OH_MIN_SANG = "\uC624\uBBFC\uC0C1";
+    private static final String PARK_JIN_SU = "\uBC15\uC9C4\uC218";
+    private static final String HA_GEUN_JU = "\uD558\uADFC\uC8FC";
+    private static final String YOON_YOUNG_CHUN = "\uC724\uC601\uCD98";
+    private static final String DEPARTMENTS = "\uAC1C\uBC1C\uD300; \uD488\uC9C8\uD300; \uC81C\uD488\uC6B4\uC601\uD300";
 
     @TempDir
     Path tempDir;
@@ -52,6 +60,39 @@ class TextQualityDiagnosticsTest {
         assertTrue(isBad(analyzer.diagnose(MOJIBAKE_SAMPLE).level()));
     }
 
+
+    @Test
+    void analyzerKeepsNormalShortKoreanNamesAndDepartmentsOk() {
+        TextQualityAnalyzer analyzer = new TextQualityAnalyzer();
+        for (String value : List.of(KIM_DEOK_YONG, OH_MIN_SANG, PARK_JIN_SU, HA_GEUN_JU, YOON_YOUNG_CHUN, DEPARTMENTS)) {
+            var result = analyzer.diagnose(value);
+            assertEquals(TextQualityLevel.OK, result.level(), value);
+            assertTrue(result.warnings().isEmpty(), value);
+        }
+    }
+
+    @Test
+    void warninglessTextIsNotDowngradedToDegraded() {
+        TextQualityAnalyzer analyzer = new TextQualityAnalyzer();
+
+        var result = analyzer.diagnose(KIM_DEOK_YONG);
+
+        assertTrue(result.warnings().isEmpty());
+        assertNotEquals(TextQualityLevel.DEGRADED, result.level());
+        assertNotEquals("degraded_text_signals", result.reason());
+    }
+
+    @Test
+    void htmlComparisonSeparatesExtractionProblemFromBrokenSource() {
+        HtmlBodyTextComparator comparator = new HtmlBodyTextComparator();
+        String normalHtml = "<html><head><meta charset=\"utf-8\"></head><body>" + SAMSUNG + " RWP90H</body></html>";
+
+        assertEquals(HtmlTextDamageType.HTML_TO_TEXT_EXTRACTION_PROBLEM,
+                comparator.compare(normalHtml, "???????? RWP90H ????????").damageType());
+        assertEquals(HtmlTextDamageType.SOURCE_OR_DECODING_BROKEN,
+                comparator.compare("<html><body>???????? RWP90H ????????</body></html>", "???????? RWP90H ????????").damageType());
+        assertEquals("utf-8", comparator.compare(normalHtml, "???????? RWP90H ????????").detectedCharset());
+    }
     @Test
     void writerSanitizesSearchFieldsAndDowngradesClearlyBrokenStoredText() throws Exception {
         Path store = createStore(false);
@@ -88,6 +129,8 @@ class TextQualityDiagnosticsTest {
         assertTrue(text.contains("MESSAGE RAW DUMP"));
         assertTrue(text.contains("nulCharCount"));
         assertTrue(text.contains("codePoints"));
+        assertTrue(text.contains("BODY HTML TEXT COMPARISON"));
+        assertTrue(text.contains("bodyHtmlDetectedCharset: ks_c_5601-1987"));
     }
 
     @Test
@@ -139,7 +182,7 @@ class TextQualityDiagnosticsTest {
                 "2026-06-26T10:00:00+09:00",
                 "2026-06-26T10:01:00+09:00",
                 text(SAMSUNG + " " + WATER_PURIFIER + " DA96-01767C"),
-                text("<html><body>?????. ?????????.</body></html>"),
+                text("<html><head><meta charset=\"ks_c_5601-1987\"></head><body>?????. ?????????.</body></html>"),
                 text("?????. ?????????."),
                 "OK",
                 List.of()
