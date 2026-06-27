@@ -2,6 +2,9 @@ package com.example.pstarchive.cli;
 
 import com.example.pstarchive.search.SearchField;
 import com.example.pstarchive.search.SearchResultFormatter;
+import com.example.pstarchive.search.SearchEngineType;
+import com.example.pstarchive.search.RawFieldVerifier;
+import com.example.pstarchive.search.SearchQueryNormalizer;
 import com.example.pstarchive.search.SearchStoreService;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -15,7 +18,7 @@ import java.util.concurrent.Callable;
 @Command(
         name = "search-store",
         mixinStandardHelpOptions = true,
-        description = "Search a Phase 3A SQLite store with SQL LIKE candidates and source-field verification."
+        description = "Search a Phase 3A SQLite store with selectable candidate engine and source-field verification."
 )
 public class SearchStoreCommand implements Callable<Integer> {
     @Parameters(index = "0", description = "SQLite store path.")
@@ -35,6 +38,9 @@ public class SearchStoreCommand implements Callable<Integer> {
 
     @Option(names = "--field", description = "Search field: subject, sender, recipients, cc, folder, body, all. Default: ${DEFAULT-VALUE}")
     private String field = "all";
+
+    @Option(names = "--engine", description = "Candidate engine: like, fts5. Default: ${DEFAULT-VALUE}")
+    private String engine = "like";
 
     @Option(names = "--include-broken", description = "Include BROKEN quality matches that are hidden by default.")
     private boolean includeBroken;
@@ -56,8 +62,16 @@ public class SearchStoreCommand implements Callable<Integer> {
             System.err.println(e.getMessage());
             return 2;
         }
+        SearchEngineType engineType;
+        try {
+            engineType = SearchEngineType.fromOption(engine);
+        } catch (IllegalArgumentException e) {
+            System.err.println(e.getMessage());
+            return 2;
+        }
         return CommandOutput.write(outputPath, out -> {
-            var response = new SearchStoreService().search(normalized, query, limit, context, maxMatchesPerMessage, fields);
+            var response = new SearchStoreService(new SearchQueryNormalizer(), engineType.create(), new RawFieldVerifier())
+                    .search(normalized, query, limit, context, maxMatchesPerMessage, fields);
             new SearchResultFormatter(out).print(new SearchResultFormatter.PathLabel(normalized.toString()), response, includeBroken);
         });
     }

@@ -6,7 +6,7 @@ Before starting future Codex work, read [`PROJECT_STATE.md`](PROJECT_STATE.md) f
 
 ## Current Status
 
-The repository is currently complete through **Phase 3C-1**.
+The repository is currently complete through **Phase 3C-2**.
 
 Completed phases:
 
@@ -18,6 +18,8 @@ Completed phases:
 - Phase 3B: SQLite `LIKE` Search MVP with source-field verification
 - Phase 3B-Fix: Text Quality Diagnostics and BROKEN match display policy
 - Phase 3C-0: Candidate Search Abstraction
+- Phase 3C-1: SQLite FTS5 candidate index build
+- Phase 3C-2: `search-store --engine fts5`
 
 For detailed phase history, CLI behavior, known issues, and future boundaries, see [`PROJECT_STATE.md`](PROJECT_STATE.md).
 
@@ -27,12 +29,12 @@ Search candidate results are not trusted as final results.
 
 Current `search-store` flow:
 
-1. SQLite `LIKE` finds candidate messages.
+1. `--engine like` or `--engine fts5` finds candidate message IDs.
 2. Stored source fields are loaded from SQLite.
 3. The query is rechecked against the actual stored field values.
 4. Only verified matches are displayed.
 
-Phase 3C may use SQLite FTS5 or Lucene as the candidate layer, but source-field re-verification must remain. Phase 3C-1 only builds the FTS5 index; `search-store` does not use it yet.
+The default engine is still `like`. FTS5 is a faster candidate layer, not a final result source. `--engine fts5` requires `build-search-index <store.sqlite> --replace` first.
 
 ## Important Known Issues
 
@@ -42,6 +44,7 @@ Phase 3C may use SQLite FTS5 or Lucene as the candidate layer, but source-field 
 - `body_html_text` can be more damaged than metadata fields because it depends on HTML source/recovery and HTML-to-text conversion.
 - `search-store` hides `textQuality: BROKEN` matches by default.
 - Use `search-store --include-broken` when debugging damaged body text.
+- FTS5 can miss some arbitrary punctuation-heavy terms depending on SQLite tokenization. Use `--engine like` as the conservative fallback when checking suspicious misses.
 
 ## Main Commands
 
@@ -94,18 +97,20 @@ Search:
 
 ```powershell
 .\gradlew.bat run --args="search-store D:\MailArchive\oms39-store.sqlite RWP90H --limit 20 --output D:\MailArchive\search-rwp90h.txt"
+.\gradlew.bat run --args="search-store D:\MailArchive\oms39-store.sqlite RWP90H --limit 20 --engine like"
+.\gradlew.bat run --args="search-store D:\MailArchive\oms39-store.sqlite RWP90H --limit 20 --engine fts5"
 .\gradlew.bat run --args="search-store D:\MailArchive\oms39-store.sqlite RWP90H --limit 20 --include-broken"
 ```
 
 ## Next Phase
 
-Next planned work is **Phase 3C-2: search-store --engine fts5**.
+Next planned work is **Phase 3C-3: LIKE vs FTS5 benchmark**.
 
 Goal:
 
-- Use the existing FTS5 candidate index from `messages_fts` as an optional `search-store` candidate engine.
-- Keep the existing source-field verification logic; FTS5 results are candidates only, not final results.
-- Keep text quality diagnostics and BROKEN match hiding behavior.
+- Compare `--engine like` and `--engine fts5` on real stores.
+- Measure speed, candidate counts, verified result counts, and punctuation-heavy part-number misses.
+- Keep source-field verification, text quality diagnostics, and BROKEN match hiding behavior.
 
 ## Out Of Scope For Now
 

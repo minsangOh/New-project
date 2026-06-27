@@ -2,7 +2,7 @@
 
 Repository: https://github.com/minsangOh/New-project
 Branch: master
-Last known state: Phase 1 through Phase 3C-1 complete.
+Last known state: Phase 1 through Phase 3C-2 complete.
 
 Use this file as the first context document for future Codex work. It is intended to replace long recap prompts.
 
@@ -164,10 +164,10 @@ Implemented:
 - `SearchStoreService` depends on the candidate search interface instead of a concrete LIKE SQL class.
 - Existing raw-field verification, match location, BROKEN match hiding, and search result formatting behavior are preserved.
 
-Not implemented yet:
+Phase boundary:
 
-- SQLite FTS5 candidate engine.
-- Lucene candidate engine.
+- SQLite FTS5 candidate engine was added later in Phase 3C-2.
+- Lucene candidate engine remains unimplemented.
 
 ### Phase 3C-1: SQLite FTS5 Candidate Index Build
 
@@ -182,7 +182,25 @@ Implemented:
 
 Not implemented yet:
 
+- Lucene candidate engine.
+
+### Phase 3C-2: FTS5 Candidate Search Engine
+
+Implemented:
+
+- `search-store --engine like`.
 - `search-store --engine fts5`.
+- Default search engine remains `like` for conservative behavior.
+- `Fts5CandidateSearcher` uses `messages_fts` only to find candidate message IDs.
+- FTS5 candidates are joined back to `messages` and loaded as normal `SearchCandidate` values.
+- Final output still requires `RawFieldVerifier` source-field verification.
+- Existing match location, text quality display, BROKEN match hiding, `--include-broken`, and `hiddenBrokenMatches` behavior are preserved.
+- `--field` restrictions map to the matching FTS5 columns.
+- Missing FTS5 index fails clearly with `FTS5 index not found. Run build-search-index first.`
+
+Not implemented yet:
+
+- Automatic fallback from FTS5 to LIKE.
 - Lucene candidate engine.
 
 ## Current CLI List
@@ -241,18 +259,18 @@ Search:
 - `dump-message-raw` should be used to compare `body_html` and `body_html_text` before deciding where the damage happened.
 - `search-store` hides BROKEN quality matches by default to avoid noisy broken body context.
 - Use `search-store --include-broken` only when debugging damaged body text.
-- Current candidate search uses the candidate-search abstraction with the LIKE engine as the only search-store engine. `build-search-index` can create an FTS5 candidate index, but `search-store` does not use it yet.
+- Current candidate search uses the candidate-search abstraction with `like` and `fts5` engines. `like` remains the default.
+- FTS5 can miss some punctuation-heavy arbitrary strings depending on SQLite tokenization. Use `--engine like` as the conservative fallback when validating suspicious misses.
 
 ## Next Planned Phase
 
-### Phase 3C: Candidate Search Acceleration
+### Phase 3C-3: LIKE vs FTS5 Benchmark
 
 Goal:
 
-- Add `search-store --engine fts5` behind the existing candidate search abstraction.
-- Candidate options to evaluate/implement:
-  - SQLite FTS5
-  - Apache Lucene
+- Benchmark `search-store --engine like` vs `search-store --engine fts5` on the real SQLite store.
+- Compare response time, candidate count, verified result count, and punctuation-heavy part-number behavior.
+- Decide whether FTS5 should become the default candidate engine later.
 
 Required invariant:
 
@@ -261,11 +279,11 @@ Required invariant:
 - Final displayed results must still be verified against stored fields.
 - Existing text quality display and BROKEN match hiding policy should remain.
 
-Suggested first Phase 3C work:
+Suggested next Phase 3C work:
 
-1. Design candidate search abstraction so `LIKE`, FTS5, and Lucene can share the same verification/output path.
-2. Add FTS5 or Lucene behind the abstraction.
-3. Benchmark against current `search-store` on the existing store.
+1. Build or refresh `messages_fts`.
+2. Run equivalent LIKE/FTS5 searches for Korean terms and part numbers.
+3. Record timings and verified result deltas.
 4. Keep `--include-broken` and `hiddenBrokenMatches` behavior unchanged.
 
 ## Explicitly Out of Scope For Now
@@ -300,6 +318,8 @@ For real-store smoke testing, use:
 
 ```powershell
 .\gradlew.bat run --args="search-store D:\MailArchive\oms39-store.sqlite RWP90H --limit 20 --output D:\MailArchive\search-rwp90h.txt"
+.\gradlew.bat run --args="build-search-index D:\MailArchive\oms39-store.sqlite --replace"
+.\gradlew.bat run --args="search-store D:\MailArchive\oms39-store.sqlite RWP90H --limit 20 --engine fts5"
 .\gradlew.bat run --args="diagnose-text-quality D:\MailArchive\oms39-store.sqlite --limit 100 --output D:\MailArchive\text-quality-report.txt"
 .\gradlew.bat run --args="dump-message-raw D:\MailArchive\oms39-store.sqlite --id 55 --output D:\MailArchive\message-55-raw.txt"
 ```

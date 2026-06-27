@@ -20,6 +20,8 @@ import com.example.pstarchive.search.SearchQueryNormalizer;
 import com.example.pstarchive.search.SearchResponse;
 import com.example.pstarchive.search.SearchResultFormatter;
 import com.example.pstarchive.search.SearchStoreService;
+import com.example.pstarchive.search.fts.Fts5CandidateSearcher;
+import com.example.pstarchive.search.fts.Fts5IndexBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
@@ -61,6 +63,49 @@ class SearchStoreTest {
 
         assertEquals(1, service.search(store, "DA96-01139A", 20, 80, 5, SearchField.allSearchable()).verifiedMessages().size());
         assertEquals(1, service.search(store, SAMSUNG, 20, 80, 5, SearchField.allSearchable()).verifiedMessages().size());
+    }
+
+    @Test
+    void fts5SearchesRwp90hKoreanAndPartNumbers() throws Exception {
+        Path store = createSearchStore();
+        new Fts5IndexBuilder().build(store, true);
+        SearchStoreService service = fts5Service();
+
+        assertEquals(2, service.search(store, "RWP90H", 20, 80, 5, SearchField.allSearchable()).verifiedMessages().size());
+        assertEquals(1, service.search(store, SAMSUNG, 20, 80, 5, SearchField.allSearchable()).verifiedMessages().size());
+        assertEquals(1, service.search(store, WATER_PURIFIER, 20, 80, 5, SearchField.allSearchable()).verifiedMessages().size());
+        assertEquals(1, service.search(store, "DA96-01139A", 20, 80, 5, SearchField.allSearchable()).verifiedMessages().size());
+    }
+
+    @Test
+    void fts5StillRequiresRawFieldVerification() throws Exception {
+        Path store = createSearchStore();
+        new Fts5IndexBuilder().build(store, true);
+
+        SearchResponse response = fts5Service().search(store, "false positive token", 20, 80, 5, List.of(SearchField.SUBJECT));
+
+        assertTrue(response.sqlCandidates() >= 1);
+        assertEquals(0, response.verifiedMessages().size());
+    }
+
+    @Test
+    void fts5RequiresExistingIndex() throws Exception {
+        Path store = createSearchStore();
+
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> fts5Service().search(store, "RWP90H", 20, 80, 5, SearchField.allSearchable()));
+
+        assertTrue(error.getMessage().contains("FTS5 index not found. Run build-search-index first."));
+    }
+
+    @Test
+    void fts5HonorsSubjectFieldRestriction() throws Exception {
+        Path store = createSearchStore();
+        new Fts5IndexBuilder().build(store, true);
+        SearchStoreService service = fts5Service();
+
+        assertEquals(1, service.search(store, "RWP90H", 20, 80, 5, List.of(SearchField.SUBJECT)).verifiedMessages().size());
+        assertEquals(0, service.search(store, "DA96-01139A", 20, 80, 5, List.of(SearchField.SUBJECT)).verifiedMessages().size());
     }
 
     @Test
@@ -160,7 +205,8 @@ class SearchStoreTest {
 
         assertTrue(commandLine.getSubcommands().containsKey("search-store"));
         assertDoesNotThrow(() -> commandLine.parseArgs("search-store", "store.sqlite", "RWP90H", "--limit", "20",
-                "--context", "80", "--field", "body", "--max-matches-per-message", "3", "--include-broken", "--output", "out.txt"));
+                "--context", "80", "--field", "body", "--engine", "fts5",
+                "--max-matches-per-message", "3", "--include-broken", "--output", "out.txt"));
     }
 
 
@@ -192,6 +238,27 @@ class SearchStoreTest {
         assertTrue(output.contains("hiddenBrokenMatches: 0"));
         assertTrue(output.contains("field: body_html_text"));
         assertTrue(output.contains("textQuality: BROKEN"));
+    }
+
+    @Test
+    void fts5FormatterKeepsBrokenMatchPolicy() throws Exception {
+        Path store = createSearchStoreWithBrokenBodyMatch();
+        new Fts5IndexBuilder().build(store, true);
+        SearchResponse response = fts5Service().search(store, "RWP90H", 20, 80, 5, SearchField.allSearchable());
+
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        new SearchResultFormatter(new PrintStream(buffer, true, StandardCharsets.UTF_8))
+                .print(new SearchResultFormatter.PathLabel(store.toString()), response, false);
+        String output = buffer.toString(StandardCharsets.UTF_8);
+
+        assertTrue(output.contains("engine: fts5"));
+        assertTrue(output.contains("hiddenBrokenMatches: 1"));
+        assertTrue(output.contains("field: subject"));
+        assertFalse(output.contains("field: body_html_text"));
+    }
+
+    private SearchStoreService fts5Service() {
+        return new SearchStoreService(new SearchQueryNormalizer(), new Fts5CandidateSearcher(), new RawFieldVerifier());
     }
     private Path createSearchStore() throws Exception {
         Path store = tempDir.resolve("search-store.sqlite");

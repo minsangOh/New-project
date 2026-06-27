@@ -30,6 +30,7 @@ public class SearchResultFormatter {
         out.println("SEARCH START");
         out.println("store: " + store.value());
         out.println("query: " + response.query().original());
+        out.println("engine: " + response.engine());
         out.println("normalizedQuery: " + response.query().comparable());
         out.println("limit: " + response.limit());
         out.println("context: " + response.contextChars());

@@ -43,6 +43,6 @@ public class SearchStoreService {
                 totalMatches += message.matches().size();
             }
         }
-        return new SearchResponse(query, safeLimit, safeContext, candidates.size(), verified, totalMatches);
+        return new SearchResponse(candidateSearchEngine.name(), query, safeLimit, safeContext, candidates.size(), verified, totalMatches);
     }
 }
