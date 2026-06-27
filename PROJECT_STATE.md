@@ -2,7 +2,7 @@
 
 Repository: https://github.com/minsangOh/New-project
 Branch: master
-Last known state: Phase 1 through Phase 3C-4 complete.
+Last known state: Phase 1 through Phase 3C-5 complete.
 
 Use this file as the first context document for future Codex work. It is intended to replace long recap prompts.
 
@@ -228,14 +228,14 @@ Benchmark evidence from the real store:
 | Query | LIKE verified | FTS5 verified | Result |
 | --- | ---: | ---: | --- |
 | RWP90H | 7 | 7 | same |
-| 테이핑 | 2 | 2 | same |
-| 단선 | 4 | 4 | same |
+| Korean: taping | 2 | 2 | same |
+| Korean: broken wire | 4 | 4 | same |
 | DA96-01767C | 11 | 9 | FTS5 missed candidates |
-| 얼음정수기 | 14 | 11 | FTS5 missed candidates |
-| 삼성전자 | 18 | 16 | FTS5 missed candidates |
+| Korean: ice water purifier | 14 | 11 | FTS5 missed candidates |
+| Korean: Samsung Electronics | 18 | 16 | FTS5 missed candidates |
 | 1015#18 | 0 | 0 | no matching data in sampled store |
 | ST760145-2 | 0 | 0 | no matching data in sampled store |
-| 조인트부 | 0 | 0 | no matching data in sampled store |
+| Korean: joint area | 0 | 0 | no matching data in sampled store |
 
 Policy:
 
@@ -254,6 +254,23 @@ Implemented:
 Not implemented yet:
 
 - Automatic fallback or hybrid candidate search.
+- Lucene candidate engine.
+
+### Phase 3C-5: FTS5 Missing Candidate Diagnostics
+
+Implemented:
+
+- `compare-search-engines <store.sqlite> <query>` CLI.
+- Options: `--limit`, `--field`, `--include-broken`, `--output`.
+- Runs the same query through `SearchStoreService` with LIKE and FTS5.
+- Compares verified message sets by `messageId`.
+- Reports summary counts for LIKE candidates, FTS5 candidates, verified messages, common messages, LIKE-only messages, and FTS5-only messages.
+- Prints LIKE-only and FTS5-only message diagnostics: message ID, subject, sender, received time, matched fields, match policies, visible match count, hidden BROKEN matches, and short preview.
+- This is diagnostic-only. It does not implement automatic fallback, hybrid candidate search, or any default engine change.
+
+Not implemented yet:
+
+- Hybrid/fallback candidate search.
 - Lucene candidate engine.
 
 ## Current CLI List
@@ -303,6 +320,7 @@ Search:
 
 - `search-store`
 - `benchmark-search`
+- `compare-search-engines`
 
 ## Known Issues and Observations
 
@@ -320,11 +338,11 @@ Search:
 
 ## Next Planned Phase
 
-### Phase 3C-5: Hybrid Candidate Search or Fallback Design
+### Phase 3C-6: Hybrid Candidate Search Design
 
 Goal:
 
-- Evaluate an explicit hybrid/fallback candidate strategy.
+- Evaluate an explicit hybrid/fallback candidate strategy using `compare-search-engines` output.
 - Keep `like` as default until a hybrid/fallback design proves it does not reduce verified results.
 - Continue treating FTS5 as a fast optional candidate layer.
 
@@ -337,10 +355,11 @@ Required invariant:
 
 Suggested next Phase 3C work:
 
-1. Design an opt-in hybrid mode, such as FTS5 first plus LIKE fallback for risky queries.
-2. Define risky-query detection for part numbers, model names, hyphens, hashes, and important Korean terms.
-3. Test that hybrid mode never reduces verified results compared with LIKE.
-4. Keep `--include-broken` and `hiddenBrokenMatches` behavior unchanged.
+1. Review LIKE-only message fields from `compare-search-engines`.
+2. Design an opt-in hybrid mode, such as FTS5 first plus LIKE fallback for risky queries.
+3. Define risky-query detection for part numbers, model names, hyphens, hashes, and important Korean terms.
+4. Test that hybrid mode never reduces verified results compared with LIKE.
+5. Keep `--include-broken` and `hiddenBrokenMatches` behavior unchanged.
 
 ## Explicitly Out of Scope For Now
 
@@ -377,6 +396,7 @@ For real-store smoke testing, use:
 .\gradlew.bat run --args="build-search-index D:\MailArchive\oms39-store.sqlite --replace"
 .\gradlew.bat run --args="search-store D:\MailArchive\oms39-store.sqlite RWP90H --limit 20 --engine fts5"
 .\gradlew.bat run --args="benchmark-search D:\MailArchive\oms39-store.sqlite RWP90H --engine both --limit 20 --repeat 3"
+.\gradlew.bat run --args="compare-search-engines D:\MailArchive\oms39-store.sqlite DA96-01767C --limit 20 --output D:\MailArchive\compare-da96.txt"
 .\gradlew.bat run --args="diagnose-text-quality D:\MailArchive\oms39-store.sqlite --limit 100 --output D:\MailArchive\text-quality-report.txt"
 .\gradlew.bat run --args="dump-message-raw D:\MailArchive\oms39-store.sqlite --id 55 --output D:\MailArchive\message-55-raw.txt"
 ```

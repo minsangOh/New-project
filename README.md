@@ -6,7 +6,7 @@ Before starting future Codex work, read [`PROJECT_STATE.md`](PROJECT_STATE.md) f
 
 ## Current Status
 
-The repository is currently complete through **Phase 3C-4**.
+The repository is currently complete through **Phase 3C-5**.
 
 Completed phases:
 
@@ -22,6 +22,7 @@ Completed phases:
 - Phase 3C-2: `search-store --engine fts5`
 - Phase 3C-3: `benchmark-search` for LIKE vs FTS5 comparison
 - Phase 3C-4: Default engine policy decision
+- Phase 3C-5: FTS5 missing candidate diagnostics
 
 For detailed phase history, CLI behavior, known issues, and future boundaries, see [`PROJECT_STATE.md`](PROJECT_STATE.md).
 
@@ -61,14 +62,14 @@ Real-store Phase 3C-3 benchmark results showed that FTS5 is much faster, but it 
 | Query | LIKE verified | FTS5 verified | Policy note |
 | --- | ---: | ---: | --- |
 | RWP90H | 7 | 7 | compatible |
-| 테이핑 | 2 | 2 | compatible |
-| 단선 | 4 | 4 | compatible |
+| Korean: taping | 2 | 2 | compatible |
+| Korean: broken wire | 4 | 4 | compatible |
 | DA96-01767C | 11 | 9 | keep LIKE default |
-| 얼음정수기 | 14 | 11 | keep LIKE default |
-| 삼성전자 | 18 | 16 | keep LIKE default |
+| Korean: ice water purifier | 14 | 11 | keep LIKE default |
+| Korean: Samsung Electronics | 18 | 16 | keep LIKE default |
 | 1015#18 | 0 | 0 | no data in sampled store |
 | ST760145-2 | 0 | 0 | no data in sampled store |
-| 조인트부 | 0 | 0 | no data in sampled store |
+| Korean: joint area | 0 | 0 | no data in sampled store |
 
 ## Main Commands
 
@@ -126,22 +127,30 @@ Search:
 .\gradlew.bat run --args="search-store D:\MailArchive\oms39-store.sqlite RWP90H --limit 20 --include-broken"
 ```
 
+Compare search engines:
+
+```powershell
+.\gradlew.bat run --args="compare-search-engines D:\MailArchive\oms39-store.sqlite DA96-01767C --limit 20 --output D:\MailArchive\compare-da96.txt"
+```
+
+`compare-search-engines` is a diagnostic tool for finding verified messages that LIKE finds but FTS5 misses. It reports message IDs, matched fields, match policies, hidden BROKEN match counts, and short previews. It is meant to guide a future hybrid/fallback design; it does not implement fallback.
+
 Benchmark:
 
 ```powershell
 .\gradlew.bat run --args="benchmark-search D:\MailArchive\oms39-store.sqlite RWP90H --engine both --limit 20 --repeat 3"
-.\gradlew.bat run --args="benchmark-search D:\MailArchive\oms39-store.sqlite 얼음정수기 --engine both --limit 20 --repeat 3 --output D:\MailArchive\benchmark-ice.txt"
+.\gradlew.bat run --args="benchmark-search D:\MailArchive\oms39-store.sqlite DA96-01767C --engine both --limit 20 --repeat 3 --output D:\MailArchive\benchmark-da96.txt"
 ```
 
 `benchmark-search` compares LIKE and FTS5 through the same `SearchStoreService` and source-field verification path. It prints summary counts and timings only, not mail body context. Current benchmark evidence keeps `like` as the default; future work should evaluate explicit hybrid/fallback behavior instead of silently switching to FTS5.
 
 ## Next Phase
 
-Next planned work is **Phase 3C-5: hybrid candidate search or fallback design**.
+Next planned work is **Phase 3C-6: hybrid candidate search design**.
 
 Goal:
 
-- Consider an explicit hybrid/fallback search mode after reviewing benchmark misses.
+- Consider an explicit hybrid/fallback search mode after reviewing `compare-search-engines` diagnostics.
 - Keep `like` as the default unless a future design can prove no loss of verified results.
 - Keep source-field verification, text quality diagnostics, and BROKEN match hiding behavior.
 

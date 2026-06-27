@@ -41,7 +41,8 @@ import java.nio.file.Path;
                 DiagnoseTextQualityCommand.class,
                 DumpMessageRawCommand.class,
                 BuildSearchIndexCommand.class,
-                BenchmarkSearchCommand.class
+                BenchmarkSearchCommand.class,
+                CompareSearchEnginesCommand.class
         }
 )
 public class ArchiveCommand {
