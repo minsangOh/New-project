@@ -1,5 +1,7 @@
 # PST Archive Search
 
+
+Before starting future Codex work, read `PROJECT_STATE.md` for the current phase, CLI list, known issues, and next-step boundaries.
 Windows 로컬 PC에서 여러 Outlook `.pst` 아카이브를 등록하고, 장기적으로 통합 검색기로 확장하기 위한 Java 21 CLI 프로젝트입니다.
 
 현재 저장소는 **Phase 1: Archive Catalog + PST 등록/상태 관리 CLI**만 구현합니다. 검색 기능, Lucene 인덱스, 메일 본문 저장, java-libpst 실제 scan은 아직 구현하지 않았습니다.
