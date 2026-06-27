@@ -40,7 +40,8 @@ import java.nio.file.Path;
                 SearchStoreCommand.class,
                 DiagnoseTextQualityCommand.class,
                 DumpMessageRawCommand.class,
-                BuildSearchIndexCommand.class
+                BuildSearchIndexCommand.class,
+                BenchmarkSearchCommand.class
         }
 )
 public class ArchiveCommand {

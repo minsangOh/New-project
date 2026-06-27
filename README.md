@@ -6,7 +6,7 @@ Before starting future Codex work, read [`PROJECT_STATE.md`](PROJECT_STATE.md) f
 
 ## Current Status
 
-The repository is currently complete through **Phase 3C-2**.
+The repository is currently complete through **Phase 3C-3**.
 
 Completed phases:
 
@@ -20,6 +20,7 @@ Completed phases:
 - Phase 3C-0: Candidate Search Abstraction
 - Phase 3C-1: SQLite FTS5 candidate index build
 - Phase 3C-2: `search-store --engine fts5`
+- Phase 3C-3: `benchmark-search` for LIKE vs FTS5 comparison
 
 For detailed phase history, CLI behavior, known issues, and future boundaries, see [`PROJECT_STATE.md`](PROJECT_STATE.md).
 
@@ -102,14 +103,23 @@ Search:
 .\gradlew.bat run --args="search-store D:\MailArchive\oms39-store.sqlite RWP90H --limit 20 --include-broken"
 ```
 
+Benchmark:
+
+```powershell
+.\gradlew.bat run --args="benchmark-search D:\MailArchive\oms39-store.sqlite RWP90H --engine both --limit 20 --repeat 3"
+.\gradlew.bat run --args="benchmark-search D:\MailArchive\oms39-store.sqlite 얼음정수기 --engine both --limit 20 --repeat 3 --output D:\MailArchive\benchmark-ice.txt"
+```
+
+`benchmark-search` compares LIKE and FTS5 through the same `SearchStoreService` and source-field verification path. It prints summary counts and timings only, not mail body context. Benchmark results are evidence for deciding whether the default `search-store` engine should later change from `like` to `fts5`; they do not change the default automatically.
+
 ## Next Phase
 
-Next planned work is **Phase 3C-3: LIKE vs FTS5 benchmark**.
+Next planned work is **Phase 3C-4: default engine policy decision**.
 
 Goal:
 
-- Compare `--engine like` and `--engine fts5` on real stores.
-- Measure speed, candidate counts, verified result counts, and punctuation-heavy part-number misses.
+- Use benchmark results from real stores to decide whether `search-store` should keep `like` as default or switch to `fts5`.
+- Compare Korean terms, part numbers, punctuation-heavy terms, and BROKEN-match behavior before changing any default.
 - Keep source-field verification, text quality diagnostics, and BROKEN match hiding behavior.
 
 ## Out Of Scope For Now

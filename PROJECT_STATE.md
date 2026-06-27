@@ -2,7 +2,7 @@
 
 Repository: https://github.com/minsangOh/New-project
 Branch: master
-Last known state: Phase 1 through Phase 3C-2 complete.
+Last known state: Phase 1 through Phase 3C-3 complete.
 
 Use this file as the first context document for future Codex work. It is intended to replace long recap prompts.
 
@@ -203,6 +203,24 @@ Not implemented yet:
 - Automatic fallback from FTS5 to LIKE.
 - Lucene candidate engine.
 
+### Phase 3C-3: LIKE vs FTS5 Benchmark Command
+
+Implemented:
+
+- `benchmark-search <store.sqlite> <query>` CLI.
+- Engine options: `--engine like`, `--engine fts5`, `--engine both`.
+- Benchmark options: `--limit`, `--repeat`, `--field`, `--include-broken`, `--output`.
+- Default benchmark engine is `both`.
+- Default `search-store` engine remains `like`.
+- Benchmark uses the existing `SearchStoreService` path, so both LIKE and FTS5 still require `RawFieldVerifier` source-field verification.
+- Benchmark output is summary-only and does not print mail body context.
+- Missing FTS5 index is reported clearly as a failed engine result.
+
+Not implemented yet:
+
+- Automatic default-engine change to FTS5.
+- Lucene candidate engine.
+
 ## Current CLI List
 
 Global pattern:
@@ -249,6 +267,7 @@ Store inspection:
 Search:
 
 - `search-store`
+- `benchmark-search`
 
 ## Known Issues and Observations
 
@@ -260,17 +279,18 @@ Search:
 - `search-store` hides BROKEN quality matches by default to avoid noisy broken body context.
 - Use `search-store --include-broken` only when debugging damaged body text.
 - Current candidate search uses the candidate-search abstraction with `like` and `fts5` engines. `like` remains the default.
+- `benchmark-search` compares LIKE and FTS5 speed/counts but does not change the default engine automatically.
 - FTS5 can miss some punctuation-heavy arbitrary strings depending on SQLite tokenization. Use `--engine like` as the conservative fallback when validating suspicious misses.
 
 ## Next Planned Phase
 
-### Phase 3C-3: LIKE vs FTS5 Benchmark
+### Phase 3C-4: Default Engine Policy Decision
 
 Goal:
 
-- Benchmark `search-store --engine like` vs `search-store --engine fts5` on the real SQLite store.
-- Compare response time, candidate count, verified result count, and punctuation-heavy part-number behavior.
-- Decide whether FTS5 should become the default candidate engine later.
+- Use benchmark evidence to decide whether `search-store` should keep `like` as default or switch to `fts5`.
+- Compare response time, candidate count, verified result count, Korean behavior, and punctuation-heavy part-number behavior.
+- Do not change the default engine without reviewing benchmark deltas.
 
 Required invariant:
 
@@ -281,9 +301,9 @@ Required invariant:
 
 Suggested next Phase 3C work:
 
-1. Build or refresh `messages_fts`.
-2. Run equivalent LIKE/FTS5 searches for Korean terms and part numbers.
-3. Record timings and verified result deltas.
+1. Run `benchmark-search` for Korean terms, part numbers, and punctuation-heavy queries.
+2. Compare LIKE/FTS5 timings and verified result deltas.
+3. Decide default engine policy.
 4. Keep `--include-broken` and `hiddenBrokenMatches` behavior unchanged.
 
 ## Explicitly Out of Scope For Now
@@ -320,6 +340,7 @@ For real-store smoke testing, use:
 .\gradlew.bat run --args="search-store D:\MailArchive\oms39-store.sqlite RWP90H --limit 20 --output D:\MailArchive\search-rwp90h.txt"
 .\gradlew.bat run --args="build-search-index D:\MailArchive\oms39-store.sqlite --replace"
 .\gradlew.bat run --args="search-store D:\MailArchive\oms39-store.sqlite RWP90H --limit 20 --engine fts5"
+.\gradlew.bat run --args="benchmark-search D:\MailArchive\oms39-store.sqlite RWP90H --engine both --limit 20 --repeat 3"
 .\gradlew.bat run --args="diagnose-text-quality D:\MailArchive\oms39-store.sqlite --limit 100 --output D:\MailArchive\text-quality-report.txt"
 .\gradlew.bat run --args="dump-message-raw D:\MailArchive\oms39-store.sqlite --id 55 --output D:\MailArchive\message-55-raw.txt"
 ```

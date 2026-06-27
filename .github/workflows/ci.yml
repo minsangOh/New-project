@@ -69,3 +69,6 @@ jobs:
 
       - name: Smoke test build-search-index help
         run: .\gradlew.bat run --args="build-search-index --help"
+
+      - name: Smoke test benchmark-search help
+        run: .\gradlew.bat run --args="benchmark-search --help"
