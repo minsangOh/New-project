@@ -43,7 +43,7 @@ class BenchmarkSearchTest {
 
         assertTrue(commandLine.getSubcommands().containsKey("benchmark-search"));
         assertDoesNotThrow(() -> commandLine.parseArgs("benchmark-search", "store.sqlite", "RWP90H",
-                "--engine", "both", "--limit", "20", "--repeat", "2", "--field", "body",
+                "--engine", "all", "--limit", "20", "--repeat", "2", "--field", "body",
                 "--include-broken", "--output", "benchmark.txt"));
     }
 
@@ -75,6 +75,25 @@ class BenchmarkSearchTest {
         assertEquals(1, report.results().get(0).counts().verifiedMessages());
     }
 
+    @Test
+    void runsHybridBenchmark() throws Exception {
+        Path store = createStore();
+        new Fts5IndexBuilder().build(store, true);
+
+        BenchmarkReport report = new BenchmarkSearchService()
+                .benchmark(store, "RWP90H", "all", 20, 1, false, List.of(SearchEngineType.HYBRID));
+
+        assertFalse(report.hasFailure());
+        assertEquals("hybrid", report.results().get(0).engine());
+        assertEquals(1, report.results().get(0).completedRuns());
+        assertEquals(1, report.results().get(0).counts().verifiedMessages());
+    }
+
+    @Test
+    void allEngineOutputsLikeFts5AndHybrid() throws Exception {
+        assertEquals(List.of(SearchEngineType.LIKE, SearchEngineType.FTS5, SearchEngineType.HYBRID),
+                com.example.pstarchive.search.benchmark.BenchmarkEngineSelection.fromOption("all").engines());
+    }
     @Test
     void bothEngineOutputsBothResultsAndRepeat() throws Exception {
         Path store = createStore();

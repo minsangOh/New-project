@@ -2,7 +2,7 @@
 
 Repository: https://github.com/minsangOh/New-project
 Branch: master
-Last known state: Phase 1 through Phase 3C-6 complete.
+Last known state: Phase 1 through Phase 3C-7 complete.
 
 Use this file as the first context document for future Codex work. It is intended to replace long recap prompts.
 
@@ -303,6 +303,39 @@ Not implemented yet:
 - Hybrid/fallback candidate search.
 - Automatic fallback from FTS5 to LIKE.
 - Lucene candidate engine.
+
+### Phase 3C-7: Hybrid Candidate Search MVP
+
+Implemented:
+
+- `search-store --engine hybrid` optional candidate engine.
+- `benchmark-search --engine hybrid` optional benchmark target.
+- `benchmark-search --engine all` runs LIKE, FTS5, and hybrid; `--engine both` remains LIKE plus FTS5.
+- `compare-search-engines --candidate-engine hybrid` compares LIKE against hybrid while the default comparison remains LIKE vs FTS5.
+- `HybridCandidateSearcher` runs FTS5 first, then optionally runs LIKE backfill and merges candidates by `messageId`.
+- `--hybrid-backfill auto|always|never` added to `search-store`; default is `auto`.
+- Hybrid candidates still flow through `SearchStoreService` and `RawFieldVerifier`; hybrid candidate hits are never final results.
+
+Risky query policy for `--hybrid-backfill auto`:
+
+- Hyphen `-` included.
+- Hash `#` included.
+- Slash `/` included.
+- Underscore `_` included.
+- Mixed ASCII letters and digits, such as `RWP90H`.
+- Short Hangul query of 2 to 4 characters, such as Korean Samsung Electronics.
+
+Policy:
+
+- Keep `search-store` default engine as `like`.
+- Treat `hybrid` as an optional engine for real-store validation.
+- Use hybrid to test whether FTS5 speed can be improved with LIKE backfill for risky queries.
+- Do not treat hybrid as the default until real-store benchmarks prove it does not reduce visible or verified results.
+
+Not implemented yet:
+
+- Default engine switch to hybrid.
+- Lucene candidate engine.
 ## Current CLI List
 
 Global pattern:
@@ -361,21 +394,21 @@ Search:
 - `dump-message-raw` should be used to compare `body_html` and `body_html_text` before deciding where the damage happened.
 - `search-store` hides BROKEN quality matches by default to avoid noisy broken body context.
 - Use `search-store --include-broken` only when debugging damaged body text.
-- Current candidate search uses the candidate-search abstraction with `like` and `fts5` engines. `like` remains the default.
-- `benchmark-search` compares LIKE and FTS5 speed/counts but does not change the default engine automatically.
+- Current candidate search uses the candidate-search abstraction with `like`, `fts5`, and `hybrid` engines. `like` remains the default.
+- `benchmark-search` compares LIKE, FTS5, and optionally hybrid speed/counts but does not change the default engine automatically.
 - Real-store benchmarks showed FTS5 candidate misses for some important Korean/part-number queries, so `like` remains the default.
 - FTS5 can miss some punctuation-heavy arbitrary strings depending on SQLite tokenization. Use `--engine like` as the conservative fallback when validating suspicious misses.
-- `compare-search-engines` separates visible/displayed differences from hidden-only BROKEN differences, so future hybrid design should focus on visible misses first.
+- `compare-search-engines` separates visible/displayed differences from hidden-only BROKEN differences, so hybrid validation should focus on visible misses first.
 
 ## Next Planned Phase
 
-### Phase 3C-7: Visible-Miss-Based Hybrid Candidate Search Design
+### Phase 3C-8: Real-Store Hybrid Benchmark and Validation
 
 Goal:
 
-- Evaluate an explicit hybrid/fallback candidate strategy using `compare-search-engines` visible/hidden-only diagnostics.
-- Keep `like` as default until a hybrid/fallback design proves it does not reduce visible or verified results.
-- Continue treating FTS5 as a fast optional candidate layer.
+- Run real-store LIKE, FTS5, and hybrid benchmarks for the known query set.
+- Keep `like` as default until hybrid proves it does not reduce visible or verified results on real store data.
+- Compare hybrid against LIKE for visible result parity and against FTS5 for speed.
 
 Required invariant:
 
@@ -386,10 +419,10 @@ Required invariant:
 
 Suggested next Phase 3C work:
 
-1. Review LIKE-only visible message fields from `compare-search-engines`.
-2. Design an opt-in hybrid mode, such as FTS5 first plus LIKE fallback for risky queries.
-3. Define risky-query detection for part numbers, model names, hyphens, hashes, and important Korean terms.
-4. Test that hybrid mode never reduces visible or verified results compared with LIKE.
+1. Run `benchmark-search --engine all` on RWP90H, DA96-01767C, Samsung Electronics, and ice water purifier queries.
+2. Run `compare-search-engines --candidate-engine hybrid` for queries where FTS5 previously missed visible results.
+3. Confirm hybrid does not reduce visible/displayed results compared with LIKE.
+4. Measure whether hybrid is materially faster than LIKE on the 50GB-class store.
 5. Keep `--include-broken` and `hiddenBrokenMatches` behavior unchanged.
 
 ## Explicitly Out of Scope For Now
@@ -426,8 +459,9 @@ For real-store smoke testing, use:
 .\gradlew.bat run --args="search-store D:\MailArchive\oms39-store.sqlite RWP90H --limit 20 --output D:\MailArchive\search-rwp90h.txt"
 .\gradlew.bat run --args="build-search-index D:\MailArchive\oms39-store.sqlite --replace"
 .\gradlew.bat run --args="search-store D:\MailArchive\oms39-store.sqlite RWP90H --limit 20 --engine fts5"
-.\gradlew.bat run --args="benchmark-search D:\MailArchive\oms39-store.sqlite RWP90H --engine both --limit 20 --repeat 3"
-.\gradlew.bat run --args="compare-search-engines D:\MailArchive\oms39-store.sqlite DA96-01767C --limit 20 --output D:\MailArchive\compare-da96.txt"
+.\gradlew.bat run --args="search-store D:\MailArchive\oms39-store.sqlite DA96-01767C --limit 20 --engine hybrid --hybrid-backfill auto"
+.\gradlew.bat run --args="benchmark-search D:\MailArchive\oms39-store.sqlite RWP90H --engine all --limit 20 --repeat 3"
+.\gradlew.bat run --args="compare-search-engines D:\MailArchive\oms39-store.sqlite DA96-01767C --candidate-engine hybrid --limit 20 --output D:\MailArchive\compare-da96-hybrid.txt"
 .\gradlew.bat run --args="diagnose-text-quality D:\MailArchive\oms39-store.sqlite --limit 100 --output D:\MailArchive\text-quality-report.txt"
 .\gradlew.bat run --args="dump-message-raw D:\MailArchive\oms39-store.sqlite --id 55 --output D:\MailArchive\message-55-raw.txt"
 ```

@@ -1,5 +1,6 @@
 package com.example.pstarchive.cli;
 
+import com.example.pstarchive.search.HybridBackfillPolicy;
 import com.example.pstarchive.search.SearchField;
 import com.example.pstarchive.search.SearchResultFormatter;
 import com.example.pstarchive.search.SearchEngineType;
@@ -18,7 +19,7 @@ import java.util.concurrent.Callable;
 @Command(
         name = "search-store",
         mixinStandardHelpOptions = true,
-        description = "Search a Phase 3A SQLite store. Default engine is accuracy-first LIKE; FTS5 is a fast optional candidate engine."
+        description = "Search a Phase 3A SQLite store. Default engine is accuracy-first LIKE; FTS5 and hybrid are optional candidate engines."
 )
 public class SearchStoreCommand implements Callable<Integer> {
     @Parameters(index = "0", description = "SQLite store path.")
@@ -39,8 +40,11 @@ public class SearchStoreCommand implements Callable<Integer> {
     @Option(names = "--field", description = "Search field: subject, sender, recipients, cc, folder, body, all. Default: ${DEFAULT-VALUE}")
     private String field = "all";
 
-    @Option(names = "--engine", description = "Candidate engine: like, fts5. Default: ${DEFAULT-VALUE}. Use fts5 for fast optional candidate search; use like for conservative accuracy.")
+    @Option(names = "--engine", description = "Candidate engine: like, fts5, hybrid. Default: ${DEFAULT-VALUE}. Hybrid uses FTS5 first and LIKE backfill for risky queries.")
     private String engine = "like";
+
+    @Option(names = "--hybrid-backfill", description = "Hybrid LIKE backfill policy: auto, always, never. Default: ${DEFAULT-VALUE}")
+    private String hybridBackfill = "auto";
 
     @Option(names = "--include-broken", description = "Include BROKEN quality matches that are hidden by default.")
     private boolean includeBroken;
@@ -63,14 +67,16 @@ public class SearchStoreCommand implements Callable<Integer> {
             return 2;
         }
         SearchEngineType engineType;
+        HybridBackfillPolicy backfillPolicy;
         try {
             engineType = SearchEngineType.fromOption(engine);
+            backfillPolicy = HybridBackfillPolicy.fromOption(hybridBackfill);
         } catch (IllegalArgumentException e) {
             System.err.println(e.getMessage());
             return 2;
         }
         return CommandOutput.write(outputPath, out -> {
-            var response = new SearchStoreService(new SearchQueryNormalizer(), engineType.create(), new RawFieldVerifier())
+            var response = new SearchStoreService(new SearchQueryNormalizer(), engineType.create(backfillPolicy), new RawFieldVerifier())
                     .search(normalized, query, limit, context, maxMatchesPerMessage, fields);
             new SearchResultFormatter(out).print(new SearchResultFormatter.PathLabel(normalized.toString()), response, includeBroken);
         });

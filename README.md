@@ -6,7 +6,7 @@ Before starting future Codex work, read [`PROJECT_STATE.md`](PROJECT_STATE.md) f
 
 ## Current Status
 
-The repository is currently complete through **Phase 3C-6**.
+The repository is currently complete through **Phase 3C-7**.
 
 Completed phases:
 
@@ -24,6 +24,7 @@ Completed phases:
 - Phase 3C-4: Default engine policy decision
 - Phase 3C-5: FTS5 missing candidate diagnostics
 - Phase 3C-6: compare diagnostics visible result refinement
+- Phase 3C-7: hybrid candidate search MVP
 
 For detailed phase history, CLI behavior, known issues, and future boundaries, see [`PROJECT_STATE.md`](PROJECT_STATE.md).
 
@@ -33,17 +34,18 @@ Search candidate results are not trusted as final results.
 
 Current `search-store` flow:
 
-1. `--engine like` or `--engine fts5` finds candidate message IDs.
+1. `--engine like`, `--engine fts5`, or `--engine hybrid` finds candidate message IDs.
 2. Stored source fields are loaded from SQLite.
 3. The query is rechecked against the actual stored field values.
 4. Only verified matches are displayed.
 
-The default engine is still `like`. FTS5 is a faster candidate layer, not a final result source. `--engine fts5` requires `build-search-index <store.sqlite> --replace` first.
+The default engine is still `like`. FTS5 and hybrid are faster candidate layers, not final result sources. `--engine fts5` and `--engine hybrid` require `build-search-index <store.sqlite> --replace` first.
 
 Engine policy:
 
 - `like`: conservative, default, accuracy-first.
 - `fts5`: fast optional candidate engine.
+- `hybrid`: optional FTS5-first engine with LIKE backfill for risky queries.
 - Use `like` to recheck suspected misses, part numbers, model names, and punctuation-heavy queries.
 
 ## Important Known Issues
@@ -125,16 +127,17 @@ Search:
 .\gradlew.bat run --args="search-store D:\MailArchive\oms39-store.sqlite RWP90H --limit 20 --output D:\MailArchive\search-rwp90h.txt"
 .\gradlew.bat run --args="search-store D:\MailArchive\oms39-store.sqlite RWP90H --limit 20 --engine like"
 .\gradlew.bat run --args="search-store D:\MailArchive\oms39-store.sqlite RWP90H --limit 20 --engine fts5"
+.\gradlew.bat run --args="search-store D:\MailArchive\oms39-store.sqlite DA96-01767C --limit 20 --engine hybrid --hybrid-backfill auto"
 .\gradlew.bat run --args="search-store D:\MailArchive\oms39-store.sqlite RWP90H --limit 20 --include-broken"
 ```
 
 Compare search engines:
 
 ```powershell
-.\gradlew.bat run --args="compare-search-engines D:\MailArchive\oms39-store.sqlite DA96-01767C --limit 20 --output D:\MailArchive\compare-da96.txt"
+.\gradlew.bat run --args="compare-search-engines D:\MailArchive\oms39-store.sqlite DA96-01767C --candidate-engine hybrid --limit 20 --output D:\MailArchive\compare-da96-hybrid.txt"
 ```
 
-`compare-search-engines` is a diagnostic tool for finding verified messages that LIKE finds but FTS5 misses. It reports message IDs, matched fields, match policies, hidden BROKEN match counts, `visibilityClass`, and short previews. It now separates visible/displayed differences from hidden-only BROKEN differences. It is meant to guide a future hybrid/fallback design; it does not implement fallback.
+`compare-search-engines` is a diagnostic tool for finding verified messages that LIKE finds but FTS5 misses. It reports message IDs, matched fields, match policies, hidden BROKEN match counts, `visibilityClass`, and short previews. It now separates visible/displayed differences from hidden-only BROKEN differences. It can compare LIKE against FTS5 by default or against hybrid with `--candidate-engine hybrid`.
 
 Phase 3C-6 comparison notes:
 
@@ -145,20 +148,20 @@ Phase 3C-6 comparison notes:
 Benchmark:
 
 ```powershell
-.\gradlew.bat run --args="benchmark-search D:\MailArchive\oms39-store.sqlite RWP90H --engine both --limit 20 --repeat 3"
-.\gradlew.bat run --args="benchmark-search D:\MailArchive\oms39-store.sqlite DA96-01767C --engine both --limit 20 --repeat 3 --output D:\MailArchive\benchmark-da96.txt"
+.\gradlew.bat run --args="benchmark-search D:\MailArchive\oms39-store.sqlite RWP90H --engine all --limit 20 --repeat 3"
+.\gradlew.bat run --args="benchmark-search D:\MailArchive\oms39-store.sqlite DA96-01767C --engine all --limit 20 --repeat 3 --output D:\MailArchive\benchmark-da96.txt"
 ```
 
-`benchmark-search` compares LIKE and FTS5 through the same `SearchStoreService` and source-field verification path. It prints summary counts and timings only, not mail body context. Current benchmark evidence keeps `like` as the default; future work should evaluate explicit hybrid/fallback behavior instead of silently switching to FTS5.
+`benchmark-search` compares LIKE, FTS5, and optionally hybrid through the same `SearchStoreService` and source-field verification path. It prints summary counts and timings only, not mail body context. Current benchmark evidence keeps `like` as the default; future work should validate hybrid on the real store before any default-engine change.
 
 ## Next Phase
 
-Next planned work is **Phase 3C-7: visible-miss-based hybrid candidate search design**.
+Next planned work is **Phase 3C-8: real-store hybrid benchmark and validation**.
 
 Goal:
 
-- Consider an explicit hybrid/fallback search mode after reviewing `compare-search-engines` visible/hidden-only diagnostics.
-- Keep `like` as the default unless a future design can prove no loss of visible or verified results.
+- Run real-store LIKE, FTS5, and hybrid benchmarks for the known query set.
+- Keep `like` as the default unless hybrid proves no loss of visible or verified results on real store data.
 - Keep source-field verification, text quality diagnostics, and BROKEN match hiding behavior.
 
 ## Out Of Scope For Now

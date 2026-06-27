@@ -9,6 +9,7 @@ public record CompareSearchReport(
         String field,
         int limit,
         boolean includeBroken,
+        String comparedEngine,
         long likeCandidates,
         long fts5Candidates,
         long likeVerifiedMessages,

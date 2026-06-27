@@ -37,7 +37,8 @@ class CompareSearchEnginesTest {
 
         assertTrue(commandLine.getSubcommands().containsKey("compare-search-engines"));
         assertDoesNotThrow(() -> commandLine.parseArgs("compare-search-engines", "store.sqlite", "RWP90H",
-                "--limit", "20", "--field", "subject", "--include-broken", "--output", "compare.txt"));
+                "--limit", "20", "--field", "subject", "--candidate-engine", "hybrid",
+                "--include-broken", "--output", "compare.txt"));
     }
 
     @Test
@@ -65,6 +66,20 @@ class CompareSearchEnginesTest {
         assertTrue(report.likeOnlyMessages().get(0).preview().length() <= 123);
     }
 
+    @Test
+    void canCompareLikeAgainstHybrid() throws Exception {
+        Path store = createStore();
+        new Fts5IndexBuilder().build(store, true);
+        deleteFtsRow(store, 1);
+
+        CompareSearchReport report = new CompareSearchService()
+                .compare(store, "RWP90H", "all", 20, false, com.example.pstarchive.search.SearchEngineType.HYBRID);
+
+        assertEquals("hybrid", report.comparedEngine());
+        assertEquals(2, report.likeVerifiedMessages());
+        assertEquals(2, report.fts5VerifiedMessages());
+        assertEquals(0, report.likeOnlyVerifiedMessages());
+    }
     @Test
     void reportsZeroLikeOnlyWhenVerifiedSetsMatch() throws Exception {
         Path store = createStore();
@@ -154,7 +169,7 @@ class CompareSearchEnginesTest {
         assertTrue(text.contains("likeOnlyDisplayedMessages: 1"));
         assertTrue(text.contains("visibilityClass: visible"));
         assertTrue(text.contains("messageId: 1"));
-        assertTrue(text.contains("FTS5 missed visible verified messages. Do not use FTS5 as default."));
+        assertTrue(text.contains("FTS5 missed visible verified messages. Do not use fts5 as default."));
         assertFalse(text.contains("MATCHES"));
     }
 

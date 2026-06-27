@@ -10,6 +10,8 @@ import com.example.pstarchive.index.ShardStoreSchema;
 import com.example.pstarchive.pst.ExtractedFolder;
 import com.example.pstarchive.pst.ExtractedMail;
 import com.example.pstarchive.search.CandidateSearchEngine;
+import com.example.pstarchive.search.HybridBackfillPolicy;
+import com.example.pstarchive.search.HybridCandidateSearcher;
 import com.example.pstarchive.search.MatchLocator;
 import com.example.pstarchive.search.MatchPolicy;
 import com.example.pstarchive.search.NormalizedQuery;
@@ -87,6 +89,67 @@ class SearchStoreTest {
         assertEquals(1, service.search(store, "DA96-01139A", 20, 80, 5, SearchField.allSearchable()).verifiedMessages().size());
     }
 
+
+    @Test
+    void hybridBackfillsVisibleSubjectSubstringMiss() throws Exception {
+        Path store = createSubjectOnlyStore("DA96-01767CD harness request");
+        new Fts5IndexBuilder().build(store, true);
+
+        SearchResponse fts5 = fts5Service().search(store, "DA96-01767C", 20, 80, 5, List.of(SearchField.SUBJECT));
+        SearchResponse like = new SearchStoreService().search(store, "DA96-01767C", 20, 80, 5, List.of(SearchField.SUBJECT));
+        SearchResponse hybrid = hybridService(HybridBackfillPolicy.AUTO)
+                .search(store, "DA96-01767C", 20, 80, 5, List.of(SearchField.SUBJECT));
+
+        assertEquals(0, fts5.verifiedMessages().size());
+        assertEquals(1, like.verifiedMessages().size());
+        assertEquals(like.verifiedMessages().size(), hybrid.verifiedMessages().size());
+        assertEquals("hybrid", hybrid.engine());
+    }
+
+    @Test
+    void hybridBackfillNeverBehavesLikeFts5OnlyForSubstringMiss() throws Exception {
+        Path store = createSubjectOnlyStore("DA96-01767CD harness request");
+        new Fts5IndexBuilder().build(store, true);
+
+        SearchResponse fts5 = fts5Service().search(store, "DA96-01767C", 20, 80, 5, List.of(SearchField.SUBJECT));
+        SearchResponse hybrid = hybridService(HybridBackfillPolicy.NEVER)
+                .search(store, "DA96-01767C", 20, 80, 5, List.of(SearchField.SUBJECT));
+
+        assertEquals(fts5.verifiedMessages().size(), hybrid.verifiedMessages().size());
+        assertEquals(0, hybrid.verifiedMessages().size());
+    }
+
+    @Test
+    void hybridBackfillAlwaysBackfillsNonRiskySubstring() throws Exception {
+        Path store = createSubjectOnlyStore("normalx approval request");
+        new Fts5IndexBuilder().build(store, true);
+
+        SearchResponse auto = hybridService(HybridBackfillPolicy.AUTO)
+                .search(store, "normal", 20, 80, 5, List.of(SearchField.SUBJECT));
+        SearchResponse always = hybridService(HybridBackfillPolicy.ALWAYS)
+                .search(store, "normal", 20, 80, 5, List.of(SearchField.SUBJECT));
+
+        assertEquals(0, auto.verifiedMessages().size());
+        assertEquals(1, always.verifiedMessages().size());
+    }
+
+    @Test
+    void hybridFormatterKeepsBrokenMatchPolicy() throws Exception {
+        Path store = createSearchStoreWithBrokenBodyMatch();
+        new Fts5IndexBuilder().build(store, true);
+        SearchResponse response = hybridService(HybridBackfillPolicy.AUTO)
+                .search(store, "RWP90H", 20, 80, 5, SearchField.allSearchable());
+
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        new SearchResultFormatter(new PrintStream(buffer, true, StandardCharsets.UTF_8))
+                .print(new SearchResultFormatter.PathLabel(store.toString()), response, false);
+        String output = buffer.toString(StandardCharsets.UTF_8);
+
+        assertTrue(output.contains("engine: hybrid"));
+        assertTrue(output.contains("hiddenBrokenMatches: 1"));
+        assertTrue(output.contains("field: subject"));
+        assertFalse(output.contains("field: body_html_text"));
+    }
     @Test
     void fts5StillRequiresRawFieldVerification() throws Exception {
         Path store = createSearchStore();
@@ -215,7 +278,7 @@ class SearchStoreTest {
 
         assertTrue(commandLine.getSubcommands().containsKey("search-store"));
         assertDoesNotThrow(() -> commandLine.parseArgs("search-store", "store.sqlite", "RWP90H", "--limit", "20",
-                "--context", "80", "--field", "body", "--engine", "fts5",
+                "--context", "80", "--field", "body", "--engine", "hybrid", "--hybrid-backfill", "auto",
                 "--max-matches-per-message", "3", "--include-broken", "--output", "out.txt"));
     }
 
@@ -270,6 +333,10 @@ class SearchStoreTest {
     private SearchStoreService fts5Service() {
         return new SearchStoreService(new SearchQueryNormalizer(), new Fts5CandidateSearcher(), new RawFieldVerifier());
     }
+
+    private SearchStoreService hybridService(HybridBackfillPolicy policy) {
+        return new SearchStoreService(new SearchQueryNormalizer(), new HybridCandidateSearcher(policy), new RawFieldVerifier());
+    }
     private Path createSearchStore() throws Exception {
         Path store = tempDir.resolve("search-store.sqlite");
         try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + store.toAbsolutePath())) {
@@ -294,6 +361,24 @@ class SearchStoreTest {
     }
 
 
+    private Path createSubjectOnlyStore(String subject) throws Exception {
+        Path store = tempDir.resolve("subject-only-store-" + Math.abs(subject.hashCode()) + ".sqlite");
+        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + store.toAbsolutePath())) {
+            ShardStoreSchema.migrate(connection);
+            connection.setAutoCommit(false);
+            try (MessageStoreWriter writer = new MessageStoreWriter(connection)) {
+                long runId = writer.startRun("sample.pst", 10, true);
+                long folderId = writer.writeFolder(new ExtractedFolder(null, null, "/Root/Inbox", "Inbox", 10L, 1, 0));
+                writer.writeMessage(mail(folderId, 20L,
+                        subject,
+                        "Sender", "sender@example.com", "me@example.com", null,
+                        "body without target"));
+                writer.finishRun(runId, new PstIndexSummary(1, 1, 1, 0, 0, 0, 7, 0, 0, 0, 0, 10, "SUCCESS"));
+                connection.commit();
+            }
+        }
+        return store;
+    }
     private Path createSearchStoreWithBrokenBodyMatch() throws Exception {
         Path store = tempDir.resolve("broken-search-store.sqlite");
         try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + store.toAbsolutePath())) {

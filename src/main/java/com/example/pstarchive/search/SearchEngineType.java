@@ -6,7 +6,8 @@ import java.util.Locale;
 
 public enum SearchEngineType {
     LIKE("like"),
-    FTS5("fts5");
+    FTS5("fts5"),
+    HYBRID("hybrid");
 
     private final String option;
 
@@ -19,9 +20,14 @@ public enum SearchEngineType {
     }
 
     public CandidateSearchEngine create() {
+        return create(HybridBackfillPolicy.AUTO);
+    }
+
+    public CandidateSearchEngine create(HybridBackfillPolicy hybridBackfillPolicy) {
         return switch (this) {
             case LIKE -> new LikeCandidateSearcher();
             case FTS5 -> new Fts5CandidateSearcher();
+            case HYBRID -> new HybridCandidateSearcher(hybridBackfillPolicy);
         };
     }
 
@@ -35,6 +41,6 @@ public enum SearchEngineType {
                 return type;
             }
         }
-        throw new IllegalArgumentException("Unknown search engine: " + option + ". Supported engines: like, fts5");
+        throw new IllegalArgumentException("Unknown search engine: " + option + ". Supported engines: like, fts5, hybrid");
     }
 }

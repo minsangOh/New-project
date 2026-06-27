@@ -1,5 +1,6 @@
 package com.example.pstarchive.cli;
 
+import com.example.pstarchive.search.SearchEngineType;
 import com.example.pstarchive.search.SearchField;
 import com.example.pstarchive.search.compare.CompareSearchFormatter;
 import com.example.pstarchive.search.compare.CompareSearchReport;
@@ -15,7 +16,7 @@ import java.util.concurrent.Callable;
 @Command(
         name = "compare-search-engines",
         mixinStandardHelpOptions = true,
-        description = "Diagnose verified messages found by LIKE but missed by FTS5, without changing search defaults."
+        description = "Diagnose verified messages found by LIKE but missed by FTS5 or hybrid, without changing search defaults."
 )
 public class CompareSearchEnginesCommand implements Callable<Integer> {
     @Parameters(index = "0", description = "SQLite store path.")
@@ -30,6 +31,9 @@ public class CompareSearchEnginesCommand implements Callable<Integer> {
     @Option(names = "--field", description = "Search field: subject, sender, recipients, cc, folder, body, all. Default: ${DEFAULT-VALUE}")
     private String field = "all";
 
+    @Option(names = "--candidate-engine", description = "Candidate engine to compare against LIKE: fts5, hybrid. Default: ${DEFAULT-VALUE}")
+    private String candidateEngine = "fts5";
+
     @Option(names = "--include-broken", description = "Include BROKEN quality matches in visible match counts.")
     private boolean includeBroken;
 
@@ -43,15 +47,20 @@ public class CompareSearchEnginesCommand implements Callable<Integer> {
             System.err.println("SQLite store does not exist: " + normalized);
             return 2;
         }
+        SearchEngineType comparedEngine;
         try {
             SearchField.fromOption(field);
+            comparedEngine = SearchEngineType.fromOption(candidateEngine);
+            if (comparedEngine == SearchEngineType.LIKE) {
+                throw new IllegalArgumentException("--candidate-engine must be fts5 or hybrid");
+            }
         } catch (IllegalArgumentException e) {
             System.err.println(e.getMessage());
             return 2;
         }
         try {
             CompareSearchReport report = new CompareSearchService()
-                    .compare(normalized, query, field, limit, includeBroken);
+                    .compare(normalized, query, field, limit, includeBroken, comparedEngine);
             int writeExit = CommandOutput.write(outputPath, out -> new CompareSearchFormatter(out).print(report));
             return writeExit != 0 ? writeExit : (report.hasFts5Error() ? 1 : 0);
         } catch (Exception e) {

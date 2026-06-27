@@ -16,7 +16,7 @@ import java.util.concurrent.Callable;
 @Command(
         name = "benchmark-search",
         mixinStandardHelpOptions = true,
-        description = "Benchmark LIKE and FTS5 candidate search while preserving source-field verification."
+        description = "Benchmark LIKE, FTS5, and hybrid candidate search while preserving source-field verification."
 )
 public class BenchmarkSearchCommand implements Callable<Integer> {
     @Parameters(index = "0", description = "SQLite store path.")
@@ -25,7 +25,7 @@ public class BenchmarkSearchCommand implements Callable<Integer> {
     @Parameters(index = "1", description = "Search query.")
     private String query;
 
-    @Option(names = "--engine", description = "Benchmark engine: like, fts5, both. Default: ${DEFAULT-VALUE}")
+    @Option(names = "--engine", description = "Benchmark engine: like, fts5, hybrid, both, all. Default: ${DEFAULT-VALUE}")
     private String engine = "both";
 
     @Option(names = "--limit", description = "Maximum verified messages per run. Default: ${DEFAULT-VALUE}")

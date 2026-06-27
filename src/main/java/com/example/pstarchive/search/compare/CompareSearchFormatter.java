@@ -1,6 +1,7 @@
 package com.example.pstarchive.search.compare;
 
 import java.io.PrintStream;
+import java.util.Locale;
 
 public class CompareSearchFormatter {
     private final PrintStream out;
@@ -16,6 +17,7 @@ public class CompareSearchFormatter {
         out.println("field: " + report.field());
         out.println("limit: " + report.limit());
         out.println("includeBroken: " + report.includeBroken());
+        out.println("candidateEngine: " + report.comparedEngine());
         out.println();
         out.println("SUMMARY");
         out.println("likeCandidates: " + report.likeCandidates());
@@ -38,7 +40,7 @@ public class CompareSearchFormatter {
         out.println();
         printMessages("LIKE ONLY VERIFIED MESSAGES", report.likeOnlyMessages());
         out.println();
-        printMessages("FTS5 ONLY VERIFIED MESSAGES", report.fts5OnlyMessages());
+        printMessages(comparedEngineLabel(report) + " ONLY VERIFIED MESSAGES", report.fts5OnlyMessages());
         out.println();
         printDiagnosisHint(report);
     }
@@ -69,17 +71,21 @@ public class CompareSearchFormatter {
     private void printDiagnosisHint(CompareSearchReport report) {
         out.println("DIAGNOSIS HINT");
         if (report.hasFts5Error()) {
-            out.println("FTS5 comparison failed. Build or verify the FTS5 index before comparing engines.");
+            out.println(comparedEngineLabel(report) + " comparison failed. Build or verify the candidate index before comparing engines.");
         } else if (report.likeOnlyDisplayedMessages() > 0) {
-            out.println("FTS5 missed visible verified messages. Do not use FTS5 as default.");
+            out.println(comparedEngineLabel(report) + " missed visible verified messages. Do not use " + report.comparedEngine() + " as default.");
             out.println("Review LIKE-only visible fields before designing hybrid fallback.");
         } else if (report.fts5OnlyDisplayedMessages() > 0) {
-            out.println("FTS5 found verified messages not present in LIKE results. Review limits and ordering before changing policy.");
+            out.println(comparedEngineLabel(report) + " found verified messages not present in LIKE results. Review limits and ordering before changing policy.");
         } else if (report.likeOnlyHiddenOnlyMessages() > 0 || report.fts5OnlyHiddenOnlyMessages() > 0) {
-            out.println("FTS5 differs only on hidden BROKEN matches under current display policy.");
+            out.println(comparedEngineLabel(report) + " differs only on hidden BROKEN matches under current display policy.");
         } else {
-            out.println("LIKE and FTS5 verified message sets match for this query and limit.");
+            out.println("LIKE and " + comparedEngineLabel(report) + " verified message sets match for this query and limit.");
         }
+    }
+
+    private String comparedEngineLabel(CompareSearchReport report) {
+        return report.comparedEngine().toUpperCase(Locale.ROOT);
     }
 
     private String list(java.util.List<String> values) {

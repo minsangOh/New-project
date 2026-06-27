@@ -30,13 +30,21 @@ public class CompareSearchService {
     private final TextQualityAnalyzer qualityAnalyzer = new TextQualityAnalyzer();
 
     public CompareSearchReport compare(Path storePath, String query, String fieldOption, int limit, boolean includeBroken) throws Exception {
+        return compare(storePath, query, fieldOption, limit, includeBroken, SearchEngineType.FTS5);
+    }
+
+    public CompareSearchReport compare(Path storePath, String query, String fieldOption, int limit, boolean includeBroken,
+                                       SearchEngineType comparedEngine) throws Exception {
         int safeLimit = Math.max(1, limit);
         List<SearchField> fields = SearchField.fromOption(fieldOption);
         SearchResponse like = search(storePath, query, safeLimit, fields, SearchEngineType.LIKE);
+        SearchEngineType safeComparedEngine = comparedEngine == null || comparedEngine == SearchEngineType.LIKE
+                ? SearchEngineType.FTS5
+                : comparedEngine;
         SearchResponse fts5 = null;
         String fts5Error = null;
         try {
-            fts5 = search(storePath, query, safeLimit, fields, SearchEngineType.FTS5);
+            fts5 = search(storePath, query, safeLimit, fields, safeComparedEngine);
         } catch (Exception e) {
             fts5Error = safeMessage(e);
         }
@@ -54,6 +62,7 @@ public class CompareSearchService {
                 fieldOption == null || fieldOption.isBlank() ? "all" : fieldOption,
                 safeLimit,
                 includeBroken,
+                safeComparedEngine.option(),
                 like.sqlCandidates(),
                 fts5 == null ? 0 : fts5.sqlCandidates(),
                 like.verifiedMessages().size(),

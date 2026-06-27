@@ -8,13 +8,17 @@ import java.util.Locale;
 public enum BenchmarkEngineSelection {
     LIKE,
     FTS5,
-    BOTH;
+    HYBRID,
+    BOTH,
+    ALL;
 
     public List<SearchEngineType> engines() {
         return switch (this) {
             case LIKE -> List.of(SearchEngineType.LIKE);
             case FTS5 -> List.of(SearchEngineType.FTS5);
+            case HYBRID -> List.of(SearchEngineType.HYBRID);
             case BOTH -> List.of(SearchEngineType.LIKE, SearchEngineType.FTS5);
+            case ALL -> List.of(SearchEngineType.LIKE, SearchEngineType.FTS5, SearchEngineType.HYBRID);
         };
     }
 
@@ -25,9 +29,11 @@ public enum BenchmarkEngineSelection {
         return switch (option.toLowerCase(Locale.ROOT)) {
             case "like" -> LIKE;
             case "fts5" -> FTS5;
+            case "hybrid" -> HYBRID;
             case "both" -> BOTH;
+            case "all" -> ALL;
             default -> throw new IllegalArgumentException("Unknown benchmark engine: " + option
-                    + ". Supported engines: like, fts5, both");
+                    + ". Supported engines: like, fts5, hybrid, both, all");
         };
     }
 }
