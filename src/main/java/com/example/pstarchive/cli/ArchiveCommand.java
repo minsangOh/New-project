@@ -36,7 +36,8 @@ import java.nio.file.Path;
                 InspectStoreCommand.class,
                 SampleMessagesCommand.class,
                 ShowMessageCommand.class,
-                QualityReportCommand.class
+                QualityReportCommand.class,
+                SearchStoreCommand.class
         }
 )
 public class ArchiveCommand {

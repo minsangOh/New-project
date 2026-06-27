@@ -549,3 +549,66 @@ Phase 3B checklist:
 - `index_errors` top issues have been reviewed.
 
 These inspection tools read only the SQLite store. They do not search mail content and do not replace the later source-text re-verification requirement.
+
+## Phase 3B SQLite Store Search MVP
+
+Phase 3B adds a local search MVP over the stored SQLite `messages` table. It does not use Lucene or SQLite FTS5 yet. The flow is deliberately conservative:
+
+1. Use SQLite `LIKE` only to collect candidate messages.
+2. Load the stored source fields from `messages`.
+3. Re-check the query against the actual field values.
+4. Print only verified messages and verified match locations.
+
+Run a search:
+
+```powershell
+.\gradlew.bat run --args="search-store D:\MailArchive\oms39-store.sqlite RWP90H --limit 20"
+```
+
+Write a UTF-8 report file:
+
+```powershell
+.\gradlew.bat run --args="search-store D:\MailArchive\oms39-store.sqlite DA96-01139A --limit 20 --output D:\MailArchive\search-report.txt"
+```
+
+Control context size:
+
+```powershell
+.\gradlew.bat run --args="search-store D:\MailArchive\oms39-store.sqlite 삼성전자 --limit 20 --context 80"
+```
+
+Options:
+
+- `--limit <n>`: maximum verified messages to print. Default is `20`.
+- `--context <n>`: characters before and after the match. Default is `80`.
+- `--output <path>`: write a UTF-8 report file with BOM.
+- `--field <field>`: optional field filter. Supported values: `subject`, `sender`, `recipients`, `cc`, `folder`, `body`, `all`.
+- `--max-matches-per-message <n>`: maximum matches shown per message. Default is `5`.
+
+Searched fields:
+
+- `subject`
+- `sender_name`
+- `sender_email`
+- `recipients`
+- `cc`
+- `folder_path`
+- `body_text`
+- `body_html_text`
+
+Result interpretation:
+
+- `sqlCandidates` is the number of messages found by SQLite `LIKE` candidate search.
+- `verifiedMessages` is the number of messages that passed source-field verification.
+- `totalMatches` is the number of verified field matches printed.
+- `policy` shows how the match was found: `EXACT`, `CASE_INSENSITIVE`, `NORMALIZED`, or `WHITESPACE_INSENSITIVE`.
+
+Current limitations:
+
+- This is not a high-speed full-text search engine.
+- Lucene and SQLite FTS5 are not implemented in this phase.
+- SQLite `LIKE` is only a candidate generator and can be slow on very large stores.
+- Final results are more trustworthy than SQL candidates because every result is rechecked against stored source fields.
+- Normalized and whitespace-insensitive matches may use approximate offsets when exact source offset mapping is not possible.
+
+Phase 3C should replace the slow candidate layer with FTS5 or Lucene while keeping the same source-field verification step.
