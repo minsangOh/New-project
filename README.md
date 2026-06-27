@@ -6,7 +6,7 @@ Before starting future Codex work, read [`PROJECT_STATE.md`](PROJECT_STATE.md) f
 
 ## Current Status
 
-The repository is currently complete through **Phase 3C-3**.
+The repository is currently complete through **Phase 3C-4**.
 
 Completed phases:
 
@@ -21,6 +21,7 @@ Completed phases:
 - Phase 3C-1: SQLite FTS5 candidate index build
 - Phase 3C-2: `search-store --engine fts5`
 - Phase 3C-3: `benchmark-search` for LIKE vs FTS5 comparison
+- Phase 3C-4: Default engine policy decision
 
 For detailed phase history, CLI behavior, known issues, and future boundaries, see [`PROJECT_STATE.md`](PROJECT_STATE.md).
 
@@ -37,6 +38,12 @@ Current `search-store` flow:
 
 The default engine is still `like`. FTS5 is a faster candidate layer, not a final result source. `--engine fts5` requires `build-search-index <store.sqlite> --replace` first.
 
+Engine policy:
+
+- `like`: conservative, default, accuracy-first.
+- `fts5`: fast optional candidate engine.
+- Use `like` to recheck suspected misses, part numbers, model names, and punctuation-heavy queries.
+
 ## Important Known Issues
 
 - Some `body_html_text` values can be stored as literal `????` / repeated `U+003F` question marks.
@@ -46,6 +53,22 @@ The default engine is still `like`. FTS5 is a faster candidate layer, not a fina
 - `search-store` hides `textQuality: BROKEN` matches by default.
 - Use `search-store --include-broken` when debugging damaged body text.
 - FTS5 can miss some arbitrary punctuation-heavy terms depending on SQLite tokenization. Use `--engine like` as the conservative fallback when checking suspicious misses.
+
+## Benchmark Summary
+
+Real-store Phase 3C-3 benchmark results showed that FTS5 is much faster, but it missed candidates for several important terms. The default engine therefore remains `like`.
+
+| Query | LIKE verified | FTS5 verified | Policy note |
+| --- | ---: | ---: | --- |
+| RWP90H | 7 | 7 | compatible |
+| 테이핑 | 2 | 2 | compatible |
+| 단선 | 4 | 4 | compatible |
+| DA96-01767C | 11 | 9 | keep LIKE default |
+| 얼음정수기 | 14 | 11 | keep LIKE default |
+| 삼성전자 | 18 | 16 | keep LIKE default |
+| 1015#18 | 0 | 0 | no data in sampled store |
+| ST760145-2 | 0 | 0 | no data in sampled store |
+| 조인트부 | 0 | 0 | no data in sampled store |
 
 ## Main Commands
 
@@ -110,16 +133,16 @@ Benchmark:
 .\gradlew.bat run --args="benchmark-search D:\MailArchive\oms39-store.sqlite 얼음정수기 --engine both --limit 20 --repeat 3 --output D:\MailArchive\benchmark-ice.txt"
 ```
 
-`benchmark-search` compares LIKE and FTS5 through the same `SearchStoreService` and source-field verification path. It prints summary counts and timings only, not mail body context. Benchmark results are evidence for deciding whether the default `search-store` engine should later change from `like` to `fts5`; they do not change the default automatically.
+`benchmark-search` compares LIKE and FTS5 through the same `SearchStoreService` and source-field verification path. It prints summary counts and timings only, not mail body context. Current benchmark evidence keeps `like` as the default; future work should evaluate explicit hybrid/fallback behavior instead of silently switching to FTS5.
 
 ## Next Phase
 
-Next planned work is **Phase 3C-4: default engine policy decision**.
+Next planned work is **Phase 3C-5: hybrid candidate search or fallback design**.
 
 Goal:
 
-- Use benchmark results from real stores to decide whether `search-store` should keep `like` as default or switch to `fts5`.
-- Compare Korean terms, part numbers, punctuation-heavy terms, and BROKEN-match behavior before changing any default.
+- Consider an explicit hybrid/fallback search mode after reviewing benchmark misses.
+- Keep `like` as the default unless a future design can prove no loss of verified results.
 - Keep source-field verification, text quality diagnostics, and BROKEN match hiding behavior.
 
 ## Out Of Scope For Now

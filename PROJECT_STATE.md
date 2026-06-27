@@ -2,7 +2,7 @@
 
 Repository: https://github.com/minsangOh/New-project
 Branch: master
-Last known state: Phase 1 through Phase 3C-3 complete.
+Last known state: Phase 1 through Phase 3C-4 complete.
 
 Use this file as the first context document for future Codex work. It is intended to replace long recap prompts.
 
@@ -221,6 +221,41 @@ Not implemented yet:
 - Automatic default-engine change to FTS5.
 - Lucene candidate engine.
 
+### Phase 3C-4: Default Engine Policy Decision
+
+Benchmark evidence from the real store:
+
+| Query | LIKE verified | FTS5 verified | Result |
+| --- | ---: | ---: | --- |
+| RWP90H | 7 | 7 | same |
+| 테이핑 | 2 | 2 | same |
+| 단선 | 4 | 4 | same |
+| DA96-01767C | 11 | 9 | FTS5 missed candidates |
+| 얼음정수기 | 14 | 11 | FTS5 missed candidates |
+| 삼성전자 | 18 | 16 | FTS5 missed candidates |
+| 1015#18 | 0 | 0 | no matching data in sampled store |
+| ST760145-2 | 0 | 0 | no matching data in sampled store |
+| 조인트부 | 0 | 0 | no matching data in sampled store |
+
+Policy:
+
+- Keep `search-store` default engine as `like`.
+- Treat `like` as the conservative, accuracy-first engine.
+- Treat `fts5` as a fast optional candidate engine only.
+- If FTS5 returns fewer verified/displayed messages, do not switch the default engine to FTS5.
+- For suspected misses, part numbers, model names, and punctuation-heavy terms such as hyphen/hash strings, re-run with `--engine like`.
+
+Implemented:
+
+- `benchmark-search` now emits `policyDecision: KEEP_LIKE_DEFAULT`.
+- If LIKE and FTS5 verified/displayed counts differ, the decision hint says not to switch the default engine to FTS5.
+- `search-store --help` now describes `like` as the accuracy-first default and `fts5` as a fast optional candidate engine.
+
+Not implemented yet:
+
+- Automatic fallback or hybrid candidate search.
+- Lucene candidate engine.
+
 ## Current CLI List
 
 Global pattern:
@@ -280,17 +315,18 @@ Search:
 - Use `search-store --include-broken` only when debugging damaged body text.
 - Current candidate search uses the candidate-search abstraction with `like` and `fts5` engines. `like` remains the default.
 - `benchmark-search` compares LIKE and FTS5 speed/counts but does not change the default engine automatically.
+- Real-store benchmarks showed FTS5 candidate misses for some important Korean/part-number queries, so `like` remains the default.
 - FTS5 can miss some punctuation-heavy arbitrary strings depending on SQLite tokenization. Use `--engine like` as the conservative fallback when validating suspicious misses.
 
 ## Next Planned Phase
 
-### Phase 3C-4: Default Engine Policy Decision
+### Phase 3C-5: Hybrid Candidate Search or Fallback Design
 
 Goal:
 
-- Use benchmark evidence to decide whether `search-store` should keep `like` as default or switch to `fts5`.
-- Compare response time, candidate count, verified result count, Korean behavior, and punctuation-heavy part-number behavior.
-- Do not change the default engine without reviewing benchmark deltas.
+- Evaluate an explicit hybrid/fallback candidate strategy.
+- Keep `like` as default until a hybrid/fallback design proves it does not reduce verified results.
+- Continue treating FTS5 as a fast optional candidate layer.
 
 Required invariant:
 
@@ -301,9 +337,9 @@ Required invariant:
 
 Suggested next Phase 3C work:
 
-1. Run `benchmark-search` for Korean terms, part numbers, and punctuation-heavy queries.
-2. Compare LIKE/FTS5 timings and verified result deltas.
-3. Decide default engine policy.
+1. Design an opt-in hybrid mode, such as FTS5 first plus LIKE fallback for risky queries.
+2. Define risky-query detection for part numbers, model names, hyphens, hashes, and important Korean terms.
+3. Test that hybrid mode never reduces verified results compared with LIKE.
 4. Keep `--include-broken` and `hiddenBrokenMatches` behavior unchanged.
 
 ## Explicitly Out of Scope For Now

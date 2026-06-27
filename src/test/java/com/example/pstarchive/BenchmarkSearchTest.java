@@ -9,13 +9,18 @@ import com.example.pstarchive.index.ShardStoreSchema;
 import com.example.pstarchive.pst.ExtractedFolder;
 import com.example.pstarchive.pst.ExtractedMail;
 import com.example.pstarchive.search.SearchEngineType;
+import com.example.pstarchive.search.benchmark.BenchmarkCounts;
+import com.example.pstarchive.search.benchmark.BenchmarkEngineResult;
 import com.example.pstarchive.search.benchmark.BenchmarkReport;
+import com.example.pstarchive.search.benchmark.BenchmarkSearchFormatter;
 import com.example.pstarchive.search.benchmark.BenchmarkSearchService;
 import com.example.pstarchive.search.fts.Fts5IndexBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -136,6 +141,64 @@ class BenchmarkSearchTest {
         assertTrue(text.contains("[ENGINE fts5]"));
         assertTrue(text.contains("status: FAILED"));
         assertTrue(text.contains("FTS5 index not found. Run build-search-index first."));
+    }
+
+    @Test
+    void formatterKeepsLikeDefaultWhenFts5VerifiedCountDiffers() {
+        BenchmarkReport report = new BenchmarkReport(
+                tempDir.resolve("store.sqlite"),
+                "DA96-01767C",
+                "all",
+                20,
+                3,
+                false,
+                List.of(
+                        new BenchmarkEngineResult("like", 3, 3, "SUCCESS", null,
+                                new BenchmarkCounts(11, 11, 11, 11, 11, 0),
+                                300, 100, 90, 120),
+                        new BenchmarkEngineResult("fts5", 3, 3, "SUCCESS", null,
+                                new BenchmarkCounts(9, 9, 9, 9, 9, 0),
+                                30, 10, 8, 12)
+                )
+        );
+
+        String text = format(report);
+
+        assertTrue(text.contains("policyDecision: KEEP_LIKE_DEFAULT"));
+        assertTrue(text.contains("reason: fts5_verified_count_diff"));
+        assertTrue(text.contains("Do not switch default engine to FTS5 for this store/query set."));
+    }
+
+    @Test
+    void formatterAllowsCompatibilityHintForEqualCountsOnly() {
+        BenchmarkReport report = new BenchmarkReport(
+                tempDir.resolve("store.sqlite"),
+                "RWP90H",
+                "all",
+                20,
+                3,
+                false,
+                List.of(
+                        new BenchmarkEngineResult("like", 3, 3, "SUCCESS", null,
+                                new BenchmarkCounts(7, 7, 7, 18, 15, 3),
+                                300, 100, 90, 120),
+                        new BenchmarkEngineResult("fts5", 3, 3, "SUCCESS", null,
+                                new BenchmarkCounts(7, 7, 7, 18, 15, 3),
+                                30, 10, 8, 12)
+                )
+        );
+
+        String text = format(report);
+
+        assertTrue(text.contains("policyDecision: KEEP_LIKE_DEFAULT"));
+        assertTrue(text.contains("reason: compatible_for_this_query_only"));
+        assertTrue(text.contains("FTS5 compatible for this query."));
+    }
+
+    private String format(BenchmarkReport report) {
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        new BenchmarkSearchFormatter(new PrintStream(buffer, true, StandardCharsets.UTF_8)).print(report);
+        return buffer.toString(StandardCharsets.UTF_8);
     }
 
     private Path createStore() throws Exception {

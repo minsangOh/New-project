@@ -18,7 +18,7 @@ import java.util.concurrent.Callable;
 @Command(
         name = "search-store",
         mixinStandardHelpOptions = true,
-        description = "Search a Phase 3A SQLite store with selectable candidate engine and source-field verification."
+        description = "Search a Phase 3A SQLite store. Default engine is accuracy-first LIKE; FTS5 is a fast optional candidate engine."
 )
 public class SearchStoreCommand implements Callable<Integer> {
     @Parameters(index = "0", description = "SQLite store path.")
@@ -39,7 +39,7 @@ public class SearchStoreCommand implements Callable<Integer> {
     @Option(names = "--field", description = "Search field: subject, sender, recipients, cc, folder, body, all. Default: ${DEFAULT-VALUE}")
     private String field = "all";
 
-    @Option(names = "--engine", description = "Candidate engine: like, fts5. Default: ${DEFAULT-VALUE}")
+    @Option(names = "--engine", description = "Candidate engine: like, fts5. Default: ${DEFAULT-VALUE}. Use fts5 for fast optional candidate search; use like for conservative accuracy.")
     private String engine = "like";
 
     @Option(names = "--include-broken", description = "Include BROKEN quality matches that are hidden by default.")

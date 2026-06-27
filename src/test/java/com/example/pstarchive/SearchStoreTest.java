@@ -66,6 +66,16 @@ class SearchStoreTest {
     }
 
     @Test
+    void defaultSearchStoreServiceUsesLikeEngine() throws Exception {
+        Path store = createSearchStore();
+
+        SearchResponse response = new SearchStoreService()
+                .search(store, "RWP90H", 20, 80, 5, SearchField.allSearchable());
+
+        assertEquals("like", response.engine());
+    }
+
+    @Test
     void fts5SearchesRwp90hKoreanAndPartNumbers() throws Exception {
         Path store = createSearchStore();
         new Fts5IndexBuilder().build(store, true);

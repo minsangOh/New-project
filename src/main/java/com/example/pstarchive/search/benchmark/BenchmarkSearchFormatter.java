@@ -51,14 +51,24 @@ public class BenchmarkSearchFormatter {
         BenchmarkEngineResult like = result(report, "like");
         BenchmarkEngineResult fts5 = result(report, "fts5");
         if (like != null && fts5 != null && like.success() && fts5.success()) {
-            if (sameCounts(like.counts(), fts5.counts())) {
-                out.println("FTS5 looks compatible for this query.");
+            String reason = incompatibleReason(like.counts(), fts5.counts());
+            if (reason == null) {
+                out.println("policyDecision: KEEP_LIKE_DEFAULT");
+                out.println("reason: compatible_for_this_query_only");
+                out.println("FTS5 compatible for this query. Keep LIKE as default until the full query set is compatible.");
             } else {
-                out.println("LIKE and FTS5 returned different verified counts. Review before changing defaults.");
+                out.println("policyDecision: KEEP_LIKE_DEFAULT");
+                out.println("reason: " + reason);
+                out.println("Do not switch default engine to FTS5 for this store/query set.");
+                out.println("FTS5 may still be useful as a fast optional candidate engine.");
             }
         } else if (fts5 != null && !fts5.success()) {
+            out.println("policyDecision: KEEP_LIKE_DEFAULT");
+            out.println("reason: fts5_failed");
             out.println("FTS5 benchmark failed. Run build-search-index first or use --engine like.");
         } else {
+            out.println("policyDecision: KEEP_LIKE_DEFAULT");
+            out.println("reason: insufficient_comparison");
             out.println("Use repeated real-store runs before changing the default engine.");
         }
     }
@@ -70,12 +80,22 @@ public class BenchmarkSearchFormatter {
                 .orElse(null);
     }
 
-    private boolean sameCounts(BenchmarkCounts left, BenchmarkCounts right) {
-        return left.candidateCount() == right.candidateCount()
-                && left.verifiedMessages() == right.verifiedMessages()
-                && left.displayedMessages() == right.displayedMessages()
-                && left.totalMatches() == right.totalMatches()
-                && left.displayedMatches() == right.displayedMatches()
-                && left.hiddenBrokenMatches() == right.hiddenBrokenMatches();
+    private String incompatibleReason(BenchmarkCounts like, BenchmarkCounts fts5) {
+        if (like.verifiedMessages() != fts5.verifiedMessages()) {
+            return "fts5_verified_count_diff";
+        }
+        if (like.displayedMessages() != fts5.displayedMessages()) {
+            return "fts5_displayed_count_diff";
+        }
+        if (like.displayedMatches() != fts5.displayedMatches()) {
+            return "fts5_displayed_match_count_diff";
+        }
+        if (like.totalMatches() != fts5.totalMatches()) {
+            return "fts5_total_match_count_diff";
+        }
+        if (like.hiddenBrokenMatches() != fts5.hiddenBrokenMatches()) {
+            return "fts5_hidden_broken_count_diff";
+        }
+        return null;
     }
 }
