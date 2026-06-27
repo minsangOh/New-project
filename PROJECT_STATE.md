@@ -2,7 +2,7 @@
 
 Repository: https://github.com/minsangOh/New-project
 Branch: master
-Last known state: Phase 1 through Phase 3C-0 complete.
+Last known state: Phase 1 through Phase 3C-1 complete.
 
 Use this file as the first context document for future Codex work. It is intended to replace long recap prompts.
 
@@ -143,7 +143,7 @@ Implemented:
   - `HTML_TO_TEXT_EXTRACTION_PROBLEM`
   - `GETTER_OR_RECOVERY_PROBLEM`
   - `SOURCE_OR_DECODING_BROKEN`
-- False-positive fix for normal short Korean names/departments such as `김덕용`, `오민상`, `박진수`, `하근주`, `윤영춘`, `개발팀`, `품질팀`, `제품운영팀`.
+- False-positive fix for normal short Korean names/departments covered by tests.
 - `search-store` hides `textQuality: BROKEN` matches by default.
 - `search-store --include-broken` shows BROKEN matches for debugging.
 - Search output reports `hiddenBrokenMatches`.
@@ -168,6 +168,23 @@ Not implemented yet:
 
 - SQLite FTS5 candidate engine.
 - Lucene candidate engine.
+
+### Phase 3C-1: SQLite FTS5 Candidate Index Build
+
+Implemented:
+
+- `build-search-index <store.sqlite> --replace` CLI.
+- SQLite FTS5 virtual table `messages_fts` generated from `messages`.
+- `messages_fts.rowid` and `message_id` preserve the source `messages.id` link.
+- Indexed fields match the current `search-store` fields: `subject`, `sender_name`, `sender_email`, `recipients`, `cc`, `folder_path`, `body_text`, `body_html_text`.
+- Existing `messages` data is not modified.
+- BROKEN quality text is indexed as stored; final display filtering remains the job of `search-store` and source-field verification.
+
+Not implemented yet:
+
+- `search-store --engine fts5`.
+- Lucene candidate engine.
+
 ## Current CLI List
 
 Global pattern:
@@ -209,6 +226,7 @@ Store inspection:
 - `quality-report`
 - `diagnose-text-quality`
 - `dump-message-raw`
+- `build-search-index`
 
 Search:
 
@@ -223,7 +241,7 @@ Search:
 - `dump-message-raw` should be used to compare `body_html` and `body_html_text` before deciding where the damage happened.
 - `search-store` hides BROKEN quality matches by default to avoid noisy broken body context.
 - Use `search-store --include-broken` only when debugging damaged body text.
-- Current candidate search uses the candidate-search abstraction with the LIKE engine as the only implemented engine. SQLite `LIKE` is acceptable for MVP validation but not ideal for large stores.
+- Current candidate search uses the candidate-search abstraction with the LIKE engine as the only search-store engine. `build-search-index` can create an FTS5 candidate index, but `search-store` does not use it yet.
 
 ## Next Planned Phase
 
@@ -231,7 +249,7 @@ Search:
 
 Goal:
 
-- Replace or augment SQLite `LIKE` candidate search with a faster candidate layer.
+- Add `search-store --engine fts5` behind the existing candidate search abstraction.
 - Candidate options to evaluate/implement:
   - SQLite FTS5
   - Apache Lucene

@@ -6,7 +6,7 @@ Before starting future Codex work, read [`PROJECT_STATE.md`](PROJECT_STATE.md) f
 
 ## Current Status
 
-The repository is currently complete through **Phase 3C-0**.
+The repository is currently complete through **Phase 3C-1**.
 
 Completed phases:
 
@@ -32,7 +32,7 @@ Current `search-store` flow:
 3. The query is rechecked against the actual stored field values.
 4. Only verified matches are displayed.
 
-Phase 3C may replace the candidate layer with SQLite FTS5 or Lucene, but source-field re-verification must remain.
+Phase 3C may use SQLite FTS5 or Lucene as the candidate layer, but source-field re-verification must remain. Phase 3C-1 only builds the FTS5 index; `search-store` does not use it yet.
 
 ## Important Known Issues
 
@@ -87,6 +87,7 @@ Inspect stored data:
 .\gradlew.bat run --args="quality-report D:\MailArchive\oms39-store.sqlite"
 .\gradlew.bat run --args="diagnose-text-quality D:\MailArchive\oms39-store.sqlite --limit 100 --output D:\MailArchive\text-quality-report.txt"
 .\gradlew.bat run --args="dump-message-raw D:\MailArchive\oms39-store.sqlite --id 55 --output D:\MailArchive\message-55-raw.txt"
+.\gradlew.bat run --args="build-search-index D:\MailArchive\oms39-store.sqlite --replace"
 ```
 
 Search:
@@ -98,12 +99,12 @@ Search:
 
 ## Next Phase
 
-Next planned work is **Phase 3C: Candidate Search Acceleration** beyond the current abstraction step.
+Next planned work is **Phase 3C-2: search-store --engine fts5**.
 
 Goal:
 
-- Add a SQLite FTS5 or Apache Lucene implementation behind the existing candidate search abstraction.
-- Keep the existing source-field verification logic.
+- Use the existing FTS5 candidate index from `messages_fts` as an optional `search-store` candidate engine.
+- Keep the existing source-field verification logic; FTS5 results are candidates only, not final results.
 - Keep text quality diagnostics and BROKEN match hiding behavior.
 
 ## Out Of Scope For Now

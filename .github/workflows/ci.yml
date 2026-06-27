@@ -66,3 +66,6 @@ jobs:
 
       - name: Smoke test dump-message-raw help
         run: .\gradlew.bat run --args="dump-message-raw --help"
+
+      - name: Smoke test build-search-index help
+        run: .\gradlew.bat run --args="build-search-index --help"
